@@ -12,7 +12,7 @@
 
 ---
 
-## ⚡ 2-Minute Overview
+## ⚡ Overview
 **TogglePulse** is an enterprise-grade feature flagging and canary deployment platform inspired by LaunchDarkly, Unleash, and modern cloud-native deployment orchestrators. Built for high-concurrency microservices, it provides deterministic percentage rollouts, user targeting rules (semver, geographic/tier attributes, set inclusion), emergency kill switches with microsecond precedence, and an interactive SDK evaluation playground.
 
 ### Core Capabilities
@@ -98,17 +98,31 @@ Bucket(user_id, flag_key) = (SHA256(flag_key + ":" + user_id)[0..4]) % 100
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `GET` | `/api/health` | Service health and active flag counts |
+| `GET` | `/api/health` | Service health check |
 | `GET` | `/api/flags` | List all feature flags with targeting rules |
 | `POST` | `/api/flags` | Create a new feature flag with initial rollout config |
-| `GET` | `/api/flags/:key` | Get flag details, rules, and evaluation stats |
-| `PATCH` | `/api/flags/:key` | Update flag status, rollout percentage, or targeting rules |
-| `POST` | `/api/flags/:key/kill` | Trigger emergency kill switch (instant override) |
-| `POST` | `/api/flags/:key/revive` | Clear kill switch and restore normal rollout state |
-| `POST` | `/api/evaluate` | Evaluate single flag for a user context |
-| `POST` | `/api/evaluate/all` | Batch evaluate all active flags for a given context |
-| `GET` | `/api/evaluations` | Recent evaluation history and telemetry |
-| `GET` | `/api/audit-logs` | Chronological audit trail of all configuration mutations |
+| `GET` | `/api/flags/:key` | Get flag details, rules, and environment configuration |
+| `PATCH` | `/api/flags/:key/rollout` | Update rollout percentage, enabled state, or kill switch for an environment |
+| `POST` | `/api/flags/:key/killswitch` | Toggle the emergency kill switch (instant override) for an environment |
+| `POST` | `/api/flags/:key/evaluate` | Evaluate a single flag for a user context |
+| `DELETE` | `/api/flags/:key` | Delete a feature flag |
+| `GET` | `/api/flags/:key/stats` | Evaluation counters for a flag (true/false/kill-switch totals) |
+| `GET` | `/api/audits` | Chronological audit trail of flag mutations and evaluations, optionally filtered by `flagKey` |
+
+### Error responses
+
+Every error response contains a stable `code` and a readable `error` string; clients
+should branch on `code` rather than message text.
+
+| HTTP status | Code | Meaning |
+| --- | --- | --- |
+| 400 | `VALIDATION_ERROR` | The request body failed validation (missing/invalid fields). |
+| 400 | `INVALID_JSON` | The request body could not be parsed as JSON. |
+| 404 | `NOT_FOUND` | The flag, or the requested route, does not exist. |
+| 500 | `INTERNAL_ERROR` | An unexpected server or storage failure prevented the operation. |
+
+Unexpected failures return a generic message; internal exception details are never
+sent to the client.
 
 ---
 
@@ -172,4 +186,4 @@ Key architectural decisions are documented under [`docs/adr/`](./docs/adr/):
 ---
 
 ## 📄 License
-MIT License. Built for technical demonstration and high-scale production architectures.
+MIT License.
