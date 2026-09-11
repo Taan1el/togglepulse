@@ -39,6 +39,9 @@ export function createApp(dbPath?: string, shouldSeed = true): AppContext {
 
   // Mount API
   app.use('/api', createApiRouter(controller));
+  app.use('/api', (_req: Request, res: Response) => {
+    res.status(404).json({ success: false, code: 'NOT_FOUND', error: 'Route not found' });
+  });
 
   // Serve client bundle in production
   const candidateDistPaths = [
@@ -55,9 +58,19 @@ export function createApp(dbPath?: string, shouldSeed = true): AppContext {
   }
 
   // Global error handler
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
+    if (res.headersSent) {
+      next(err);
+      return;
+    }
+
+    if (err?.type === 'entity.parse.failed' || err instanceof SyntaxError) {
+      res.status(400).json({ success: false, code: 'INVALID_JSON', error: 'Malformed JSON body' });
+      return;
+    }
+
     console.error('Unhandled server error:', err);
-    res.status(500).json({ success: false, error: err.message || 'Internal Server Error' });
+    res.status(500).json({ success: false, code: 'INTERNAL_ERROR', error: 'Internal Server Error' });
   });
 
   return {

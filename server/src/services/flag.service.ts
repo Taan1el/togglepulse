@@ -9,6 +9,7 @@ import type {
 } from '../../../shared/types.js';
 import { FlagRepository } from '../repositories/flag.repository.js';
 import { EvaluatorService } from './evaluator.service.js';
+import { ValidationError, NotFoundError } from '../errors.js';
 
 export class FlagService {
   constructor(
@@ -17,14 +18,21 @@ export class FlagService {
   ) {}
 
   createFlag(payload: CreateFlagPayload): FeatureFlag {
-    if (!payload.key || !payload.name) {
-      throw new Error('Key and Name are required');
+    const trimmedKey = typeof payload.key === 'string' ? payload.key.trim() : '';
+    const trimmedName = typeof payload.name === 'string' ? payload.name.trim() : '';
+    if (!trimmedKey || !trimmedName) {
+      throw new ValidationError('Key and Name are required');
     }
 
-    const cleanKey = payload.key.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+    if (payload.tags !== undefined && !Array.isArray(payload.tags)) {
+      throw new ValidationError('Tags must be an array of strings');
+    }
+
+    const cleanKey = trimmedKey.toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+
     const existing = this.flagRepo.getFlagByKey(cleanKey);
     if (existing) {
-      throw new Error(`Flag with key "${cleanKey}" already exists`);
+      throw new ValidationError(`Flag with key "${cleanKey}" already exists`);
     }
 
     const defaultEnvs = {
@@ -57,7 +65,7 @@ export class FlagService {
     const now = new Date().toISOString();
     const flag: FeatureFlag = {
       key: cleanKey,
-      name: payload.name.trim(),
+      name: trimmedName,
       description: payload.description || '',
       tags: payload.tags || [],
       environments: mergedEnvs,
@@ -80,7 +88,13 @@ export class FlagService {
 
   updateRollout(key: string, payload: UpdateRolloutPayload): FeatureFlag {
     const flag = this.flagRepo.getFlagByKey(key);
-    if (!flag) throw new Error(`Flag not found: ${key}`);
+    if (!flag) throw new NotFoundError(`Flag not found: ${key}`);
+
+    if (payload.rolloutPercentage !== undefined) {
+      if (typeof payload.rolloutPercentage !== 'number' || !Number.isFinite(payload.rolloutPercentage)) {
+        throw new ValidationError('rolloutPercentage must be a finite number between 0 and 100');
+      }
+    }
 
     const env = payload.environment || 'production';
     const currentEnv = flag.environments[env] || {
@@ -92,7 +106,10 @@ export class FlagService {
 
     const updatedEnv = {
       ...currentEnv,
-      rolloutPercentage: Math.min(100, Math.max(0, payload.rolloutPercentage)),
+      rolloutPercentage:
+        payload.rolloutPercentage !== undefined
+          ? Math.min(100, Math.max(0, payload.rolloutPercentage))
+          : currentEnv.rolloutPercentage,
       enabled: payload.enabled !== undefined ? payload.enabled : currentEnv.enabled,
       killSwitchActive:
         payload.killSwitchActive !== undefined
@@ -122,7 +139,7 @@ export class FlagService {
   ): EvaluationResult {
     const flag = this.flagRepo.getFlagByKey(key);
     if (!flag) {
-      throw new Error(`Flag not found: ${key}`);
+      throw new NotFoundError(`Flag not found: ${key}`);
     }
 
     const result = this.evaluator.evaluateFlag(flag, environment, context);

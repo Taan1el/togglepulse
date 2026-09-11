@@ -228,4 +228,106 @@ describe('TogglePulse Feature Flag & Canary Rollout Suite', () => {
       expect(auditsRes.body.data.length).toBe(3);
     });
   });
+
+  describe('API input validation and error contract', () => {
+    let app: any;
+
+    beforeEach(() => {
+      const ctx = createApp(':memory:', false);
+      app = ctx.app;
+    });
+
+    it('rejects flag creation with a whitespace-only key', async () => {
+      const res = await request(app)
+        .post('/api/flags')
+        .send({ key: '   ', name: 'Whitespace Key' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('rejects flag creation with a missing name', async () => {
+      const res = await request(app).post('/api/flags').send({ key: 'no_name' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('rejects flag creation when tags is not an array', async () => {
+      const res = await request(app)
+        .post('/api/flags')
+        .send({ key: 'bad_tags', name: 'Bad Tags', tags: 'not-an-array' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('rejects duplicate flag keys', async () => {
+      await request(app).post('/api/flags').send({ key: 'dup_flag', name: 'Dup Flag' });
+      const res = await request(app).post('/api/flags').send({ key: 'dup_flag', name: 'Dup Flag Again' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('returns NOT_FOUND for an unknown flag on get, rollout, and evaluate', async () => {
+      const getRes = await request(app).get('/api/flags/missing_flag');
+      expect(getRes.status).toBe(404);
+      expect(getRes.body.code).toBe('NOT_FOUND');
+
+      const rolloutRes = await request(app)
+        .patch('/api/flags/missing_flag/rollout')
+        .send({ environment: 'production', rolloutPercentage: 50 });
+      expect(rolloutRes.status).toBe(404);
+      expect(rolloutRes.body.code).toBe('NOT_FOUND');
+
+      const evalRes = await request(app)
+        .post('/api/flags/missing_flag/evaluate')
+        .send({ environment: 'production', context: { userId: 'usr_1' } });
+      expect(evalRes.status).toBe(404);
+      expect(evalRes.body.code).toBe('NOT_FOUND');
+    });
+
+    it('rejects a non-numeric rollout percentage instead of silently corrupting state', async () => {
+      await request(app).post('/api/flags').send({ key: 'rollout_flag', name: 'Rollout Flag' });
+
+      const res = await request(app)
+        .patch('/api/flags/rollout_flag/rollout')
+        .send({ environment: 'production', rolloutPercentage: 'fifty' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('VALIDATION_ERROR');
+
+      const flag = await request(app).get('/api/flags/rollout_flag');
+      expect(flag.body.data.environments.production.rolloutPercentage).toBe(0);
+    });
+
+    it('rejects evaluation requests missing a userId', async () => {
+      await request(app).post('/api/flags').send({ key: 'ctx_flag', name: 'Context Flag' });
+
+      const res = await request(app)
+        .post('/api/flags/ctx_flag/evaluate')
+        .send({ environment: 'production', context: {} });
+
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('returns a JSON 404 for an unmatched API route', async () => {
+      const res = await request(app).get('/api/does-not-exist');
+
+      expect(res.status).toBe(404);
+      expect(res.body.code).toBe('NOT_FOUND');
+    });
+
+    it('returns a JSON 400 for a malformed JSON body', async () => {
+      const res = await request(app)
+        .post('/api/flags')
+        .set('Content-Type', 'application/json')
+        .send('{not valid json');
+
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe('INVALID_JSON');
+    });
+  });
 });

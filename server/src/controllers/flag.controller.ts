@@ -1,8 +1,22 @@
 import { Request, Response } from 'express';
 import { FlagService } from '../services/flag.service.js';
+import { ValidationError, NotFoundError } from '../errors.js';
 
 export class FlagController {
   constructor(private flagService: FlagService) {}
+
+  private handleError(err: unknown, res: Response, fallbackMessage: string): void {
+    if (err instanceof ValidationError) {
+      res.status(400).json({ success: false, code: err.code, error: err.message });
+      return;
+    }
+    if (err instanceof NotFoundError) {
+      res.status(404).json({ success: false, code: err.code, error: err.message });
+      return;
+    }
+    console.error(fallbackMessage, err);
+    res.status(500).json({ success: false, code: 'INTERNAL_ERROR', error: fallbackMessage });
+  }
 
   health = (_req: Request, res: Response): void => {
     res.json({
@@ -16,8 +30,8 @@ export class FlagController {
     try {
       const flags = this.flagService.getAllFlags();
       res.json({ success: true, data: flags });
-    } catch (err: any) {
-      res.status(500).json({ success: false, error: err.message || 'Failed to list flags' });
+    } catch (err) {
+      this.handleError(err, res, 'Failed to list flags');
     }
   };
 
@@ -27,13 +41,13 @@ export class FlagController {
       const flag = this.flagService.getFlag(key);
 
       if (!flag) {
-        res.status(404).json({ success: false, error: `Flag not found: ${key}` });
+        res.status(404).json({ success: false, code: 'NOT_FOUND', error: `Flag not found: ${key}` });
         return;
       }
 
       res.json({ success: true, data: flag });
-    } catch (err: any) {
-      res.status(500).json({ success: false, error: err.message || 'Failed to get flag' });
+    } catch (err) {
+      this.handleError(err, res, 'Failed to get flag');
     }
   };
 
@@ -41,8 +55,8 @@ export class FlagController {
     try {
       const flag = this.flagService.createFlag(req.body);
       res.status(201).json({ success: true, data: flag });
-    } catch (err: any) {
-      res.status(400).json({ success: false, error: err.message || 'Creation failed' });
+    } catch (err) {
+      this.handleError(err, res, 'Failed to create flag');
     }
   };
 
@@ -51,8 +65,8 @@ export class FlagController {
       const key = Array.isArray(req.params.key) ? req.params.key[0] : req.params.key;
       const updated = this.flagService.updateRollout(key, req.body);
       res.json({ success: true, data: updated });
-    } catch (err: any) {
-      res.status(400).json({ success: false, error: err.message || 'Update failed' });
+    } catch (err) {
+      this.handleError(err, res, 'Failed to update rollout');
     }
   };
 
@@ -62,8 +76,8 @@ export class FlagController {
       const { environment = 'production', active } = req.body;
       const updated = this.flagService.toggleKillSwitch(key, environment, Boolean(active));
       res.json({ success: true, data: updated });
-    } catch (err: any) {
-      res.status(400).json({ success: false, error: err.message || 'Kill switch toggle failed' });
+    } catch (err) {
+      this.handleError(err, res, 'Failed to toggle kill switch');
     }
   };
 
@@ -72,15 +86,19 @@ export class FlagController {
       const key = Array.isArray(req.params.key) ? req.params.key[0] : req.params.key;
       const { environment = 'production', context } = req.body;
 
-      if (!context || !context.userId) {
-        res.status(400).json({ success: false, error: 'Context with userId is required for evaluation' });
+      if (!context || typeof context.userId !== 'string' || !context.userId) {
+        res.status(400).json({
+          success: false,
+          code: 'VALIDATION_ERROR',
+          error: 'Context with userId is required for evaluation',
+        });
         return;
       }
 
       const result = this.flagService.evaluate(key, environment, context);
       res.json({ success: true, data: result });
-    } catch (err: any) {
-      res.status(400).json({ success: false, error: err.message || 'Evaluation failed' });
+    } catch (err) {
+      this.handleError(err, res, 'Failed to evaluate flag');
     }
   };
 
@@ -89,8 +107,8 @@ export class FlagController {
       const key = Array.isArray(req.params.key) ? req.params.key[0] : req.params.key;
       const deleted = this.flagService.deleteFlag(key);
       res.json({ success: true, data: { deleted } });
-    } catch (err: any) {
-      res.status(500).json({ success: false, error: err.message || 'Delete failed' });
+    } catch (err) {
+      this.handleError(err, res, 'Failed to delete flag');
     }
   };
 
@@ -100,8 +118,8 @@ export class FlagController {
       const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 50;
       const audits = this.flagService.getRecentAudits(flagKey, limit);
       res.json({ success: true, data: audits });
-    } catch (err: any) {
-      res.status(500).json({ success: false, error: err.message || 'Failed to get audits' });
+    } catch (err) {
+      this.handleError(err, res, 'Failed to get audits');
     }
   };
 
@@ -110,8 +128,8 @@ export class FlagController {
       const key = Array.isArray(req.params.key) ? req.params.key[0] : req.params.key;
       const stats = this.flagService.getFlagStats(key);
       res.json({ success: true, data: stats });
-    } catch (err: any) {
-      res.status(500).json({ success: false, error: err.message || 'Failed to get stats' });
+    } catch (err) {
+      this.handleError(err, res, 'Failed to get stats');
     }
   };
 }
