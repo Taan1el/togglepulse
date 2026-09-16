@@ -126,9 +126,7 @@ export class FlagService {
   toggleKillSwitch(key: string, environment = 'production', active: boolean): FeatureFlag {
     return this.updateRollout(key, {
       environment,
-      rolloutPercentage: active ? 0 : 50,
       killSwitchActive: active,
-      enabled: !active,
     });
   }
 

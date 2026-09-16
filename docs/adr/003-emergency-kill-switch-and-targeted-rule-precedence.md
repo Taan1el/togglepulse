@@ -16,8 +16,10 @@ Simultaneously, teams need fine-grained control to target specific user segments
    - **Tier 3 (Targeting Rules)**: Evaluate rules sequentially (`EQUALS`, `IN`, `CONTAINS`, `SEMVER_GTE`). First matching rule dictates the result (`reason: RULE_MATCH`).
    - **Tier 4 (Canary Rollout)**: Calculate deterministic SHA-256 bucket and compare with `rolloutPercentage` (`reason: ROLLOUT_BUCKET`).
 
-2. **Sub-Millisecond Kill Switch Propagation**:
-   - Updating the kill switch updates SQLite WAL storage and invalidates local cache, ensuring instant cutoff across client applications.
+2. **Independent Kill Switch State**:
+   - Toggling the kill switch changes only `killSwitchActive` for the selected environment. The rollout percentage, enabled state, and targeting rules remain intact.
+   - Releasing the switch resumes evaluation against the current configuration. A disabled environment stays disabled. Configuration edits made while the switch is active remain in effect after release.
+   - State is persisted in SQLite and read by subsequent evaluations. There is no push propagation to clients or guarantee for previously evaluated results.
 
 ## Consequences
 - **Positive**: Immediate emergency mitigation of production incidents with zero deployment latency.
