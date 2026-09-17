@@ -56,4 +56,26 @@ describe('Kill switch configuration preservation', () => {
       rolloutPercentage: 17, enabled: false, killSwitchActive: false,
     });
   });
+
+  it.each([['false', 'string'], [0, 'number'], [null, 'null']])(
+    'rejects a non-boolean active value (%s as %s) instead of coercing it',
+    async (active: unknown) => {
+      await request(ctx.app).post('/api/flags').send({ key: 'billing', name: 'Billing' }).expect(201);
+      const response = await request(ctx.app).post('/api/flags/billing/killswitch')
+        .send({ active }).expect(400);
+      expect(response.body).toMatchObject({ success: false, code: 'VALIDATION_ERROR' });
+      const stored = await request(ctx.app).get('/api/flags/billing').expect(200);
+      expect(stored.body.data.environments.production.killSwitchActive).toBe(false);
+    }
+  );
+
+  it('rejects a non-boolean enabled or killSwitchActive on a direct rollout update', async () => {
+    await request(ctx.app).post('/api/flags').send({ key: 'search-two', name: 'Search Two' }).expect(201);
+    const badEnabled = await request(ctx.app).patch('/api/flags/search-two/rollout')
+      .send({ environment: 'production', enabled: 'true' }).expect(400);
+    expect(badEnabled.body.code).toBe('VALIDATION_ERROR');
+    const badKillSwitch = await request(ctx.app).patch('/api/flags/search-two/rollout')
+      .send({ environment: 'production', killSwitchActive: 1 }).expect(400);
+    expect(badKillSwitch.body.code).toBe('VALIDATION_ERROR');
+  });
 });

@@ -74,7 +74,7 @@ export class FlagController {
     try {
       const key = Array.isArray(req.params.key) ? req.params.key[0] : req.params.key;
       const { environment = 'production', active } = req.body;
-      const updated = this.flagService.toggleKillSwitch(key, environment, Boolean(active));
+      const updated = this.flagService.toggleKillSwitch(key, environment, active);
       res.json({ success: true, data: updated });
     } catch (err) {
       this.handleError(err, res, 'Failed to toggle kill switch');

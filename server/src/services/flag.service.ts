@@ -96,6 +96,14 @@ export class FlagService {
       }
     }
 
+    if (payload.enabled !== undefined && typeof payload.enabled !== 'boolean') {
+      throw new ValidationError('enabled must be a boolean');
+    }
+
+    if (payload.killSwitchActive !== undefined && typeof payload.killSwitchActive !== 'boolean') {
+      throw new ValidationError('killSwitchActive must be a boolean');
+    }
+
     const env = payload.environment || 'production';
     const currentEnv = flag.environments[env] || {
       enabled: true,
@@ -123,10 +131,10 @@ export class FlagService {
     return this.flagRepo.getFlagByKey(key)!;
   }
 
-  toggleKillSwitch(key: string, environment = 'production', active: boolean): FeatureFlag {
+  toggleKillSwitch(key: string, environment = 'production', active: unknown): FeatureFlag {
     return this.updateRollout(key, {
       environment,
-      killSwitchActive: active,
+      killSwitchActive: active as boolean,
     });
   }
 
