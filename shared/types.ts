@@ -64,7 +64,7 @@ export interface CreateFlagPayload {
 }
 
 export interface UpdateRolloutPayload {
-  environment: string;
+  environment?: string;
   rolloutPercentage?: number;
   enabled?: boolean;
   killSwitchActive?: boolean;

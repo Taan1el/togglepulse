@@ -8,7 +8,8 @@ import type {
   ApiResponse,
 } from '../../../shared/types.js';
 
-const API_BASE = '/api';
+// BASE_URL is '/' for the real app, so this resolves to '/api'.
+const API_BASE = `${import.meta.env.BASE_URL}api`;
 
 export async function fetchHealth(): Promise<{ status: string; service: string }> {
   const res = await fetch(`${API_BASE}/health`);
@@ -89,4 +90,10 @@ export async function fetchStats(key: string): Promise<FlagStats> {
   const json: ApiResponse<FlagStats> = await res.json();
   if (!json.success || !json.data) throw new Error(json.error || 'Failed to fetch stats');
   return json.data;
+}
+
+export async function deleteFlag(key: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/flags/${key}`, { method: 'DELETE' });
+  const json: ApiResponse<{ deleted: boolean }> = await res.json();
+  if (!json.success) throw new Error(json.error || 'Failed to delete flag');
 }
