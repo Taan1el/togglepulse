@@ -1,7 +1,14 @@
 node_modules
 dist
 .env
-data/*.db*
+.env.*
+!.env.example
+# SQLite database and WAL files written by the server
+data/
+*.db
+*.db-*
+*.sqlite*
 coverage
 *.log
 .DS_Store
+Thumbs.db
