@@ -7,7 +7,7 @@ import { createDatabase } from './db/database.js';
 import { initializeSchema } from './db/schema.js';
 import { seedDatabase } from './db/seed.js';
 import { FlagRepository } from './repositories/flag.repository.js';
-import { EvaluatorService } from './services/evaluator.service.js';
+import { EvaluationEngine } from './services/evaluation-engine.js';
 import { FlagService } from './services/flag.service.js';
 import { FlagController } from './controllers/flag.controller.js';
 import { createApiRouter } from './routes/api.routes.js';
@@ -16,7 +16,7 @@ export interface AppContext {
   app: Express;
   db: DatabaseSync;
   repo: FlagRepository;
-  evaluator: EvaluatorService;
+  engine: EvaluationEngine;
   service: FlagService;
   controller: FlagController;
 }
@@ -33,8 +33,8 @@ export function createApp(dbPath?: string, shouldSeed = true): AppContext {
   }
 
   const repo = new FlagRepository(db);
-  const evaluator = new EvaluatorService();
-  const service = new FlagService(repo, evaluator);
+  const engine = new EvaluationEngine();
+  const service = new FlagService(repo, engine);
   const controller = new FlagController(service);
 
   // Mount API
@@ -77,7 +77,7 @@ export function createApp(dbPath?: string, shouldSeed = true): AppContext {
     app,
     db,
     repo,
-    evaluator,
+    engine,
     service,
     controller,
   };

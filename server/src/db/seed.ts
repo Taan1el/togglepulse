@@ -1,6 +1,6 @@
 import { DatabaseSync } from 'node:sqlite';
 import { FlagRepository } from '../repositories/flag.repository.js';
-import { EvaluatorService } from '../services/evaluator.service.js';
+import { EvaluationEngine } from '../services/evaluation-engine.js';
 import { FlagService } from '../services/flag.service.js';
 import { SAMPLE_FLAGS, SAMPLE_EVALUATIONS } from '../../../shared/sample-flags.js';
 
@@ -10,8 +10,8 @@ export function seedDatabase(db: DatabaseSync): void {
 
   console.log('[TogglePulse Seed] Seeding sample feature flags...');
   const repo = new FlagRepository(db);
-  const evaluator = new EvaluatorService();
-  const service = new FlagService(repo, evaluator);
+  const engine = new EvaluationEngine();
+  const service = new FlagService(repo, engine);
 
   for (const flag of SAMPLE_FLAGS) {
     service.createFlag(flag);

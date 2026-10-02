@@ -1,24 +1,24 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../src/app.js';
-import { EvaluatorService } from '../src/services/evaluator.service.js';
+import { EvaluationEngine } from '../src/services/evaluation-engine.js';
 import type { FeatureFlag } from '../../shared/types.js';
 
 describe('TogglePulse Feature Flag & Canary Rollout Suite', () => {
-  const evaluator = new EvaluatorService();
+  const engine = new EvaluationEngine();
 
   describe('Deterministic SHA-256 Bucketing', () => {
     it('generates consistent deterministic bucket numbers for identical inputs', () => {
-      const bucket1 = evaluator.computeBucket('usr_estonia_42', 'checkout_v2');
-      const bucket2 = evaluator.computeBucket('usr_estonia_42', 'checkout_v2');
+      const bucket1 = engine.computeBucket('usr_estonia_42', 'checkout_v2');
+      const bucket2 = engine.computeBucket('usr_estonia_42', 'checkout_v2');
       expect(bucket1).toBe(bucket2);
       expect(bucket1).toBeGreaterThanOrEqual(0);
       expect(bucket1).toBeLessThan(100);
     });
 
     it('distributes buckets predictably across different flag keys', () => {
-      const b1 = evaluator.computeBucket('usr_test', 'flag_alpha');
-      const b2 = evaluator.computeBucket('usr_test', 'flag_beta');
+      const b1 = engine.computeBucket('usr_test', 'flag_alpha');
+      const b2 = engine.computeBucket('usr_test', 'flag_beta');
       expect(typeof b1).toBe('number');
       expect(typeof b2).toBe('number');
     });
@@ -34,8 +34,8 @@ describe('TogglePulse Feature Flag & Canary Rollout Suite', () => {
         serveValue: true,
       };
 
-      expect(evaluator.evaluateRule(ruleEquals, { userId: 'u1', attributes: { country: 'EE' } })).toBe(true);
-      expect(evaluator.evaluateRule(ruleEquals, { userId: 'u1', attributes: { country: 'LV' } })).toBe(false);
+      expect(engine.evaluateRule(ruleEquals, { userId: 'u1', attributes: { country: 'EE' } })).toBe(true);
+      expect(engine.evaluateRule(ruleEquals, { userId: 'u1', attributes: { country: 'LV' } })).toBe(false);
 
       const ruleIn = {
         id: 'r2',
@@ -45,8 +45,8 @@ describe('TogglePulse Feature Flag & Canary Rollout Suite', () => {
         serveValue: true,
       };
 
-      expect(evaluator.evaluateRule(ruleIn, { userId: 'u1', attributes: { role: 'beta_tester' } })).toBe(true);
-      expect(evaluator.evaluateRule(ruleIn, { userId: 'u1', attributes: { role: 'standard_user' } })).toBe(false);
+      expect(engine.evaluateRule(ruleIn, { userId: 'u1', attributes: { role: 'beta_tester' } })).toBe(true);
+      expect(engine.evaluateRule(ruleIn, { userId: 'u1', attributes: { role: 'standard_user' } })).toBe(false);
     });
 
     it('evaluates SEMVER_GTE for client application versions', () => {
@@ -58,9 +58,9 @@ describe('TogglePulse Feature Flag & Canary Rollout Suite', () => {
         serveValue: true,
       };
 
-      expect(evaluator.evaluateRule(ruleSemver, { userId: 'u1', attributes: { appVersion: '2.5.1' } })).toBe(true);
-      expect(evaluator.evaluateRule(ruleSemver, { userId: 'u1', attributes: { appVersion: '2.4.0' } })).toBe(true);
-      expect(evaluator.evaluateRule(ruleSemver, { userId: 'u1', attributes: { appVersion: '2.3.9' } })).toBe(false);
+      expect(engine.evaluateRule(ruleSemver, { userId: 'u1', attributes: { appVersion: '2.5.1' } })).toBe(true);
+      expect(engine.evaluateRule(ruleSemver, { userId: 'u1', attributes: { appVersion: '2.4.0' } })).toBe(true);
+      expect(engine.evaluateRule(ruleSemver, { userId: 'u1', attributes: { appVersion: '2.3.9' } })).toBe(false);
     });
   });
 
@@ -92,7 +92,7 @@ describe('TogglePulse Feature Flag & Canary Rollout Suite', () => {
     };
 
     it('matches targeted rule when criteria is met', () => {
-      const res = evaluator.evaluateFlag(sampleFlag, 'production', {
+      const res = engine.evaluateFlag(sampleFlag, 'production', {
         userId: 'usr_enterprise_1',
         attributes: { plan: 'enterprise' },
       });
@@ -113,7 +113,7 @@ describe('TogglePulse Feature Flag & Canary Rollout Suite', () => {
         },
       };
 
-      const res = evaluator.evaluateFlag(killedFlag, 'production', {
+      const res = engine.evaluateFlag(killedFlag, 'production', {
         userId: 'usr_enterprise_1',
         attributes: { plan: 'enterprise' },
       });

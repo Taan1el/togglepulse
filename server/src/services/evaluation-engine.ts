@@ -13,7 +13,7 @@ import {
 
 // Thin wrapper so the service layer keeps one injectable object. The logic
 // itself lives in shared/evaluate.ts and also runs in the browser demo.
-export class EvaluatorService {
+export class EvaluationEngine {
   computeBucket(userId: string, flagKey: string): number {
     return computeBucket(userId, flagKey);
   }

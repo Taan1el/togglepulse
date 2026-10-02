@@ -8,7 +8,7 @@ import type {
   FlagStats,
 } from '../../../shared/types.js';
 import { FlagRepository } from '../repositories/flag.repository.js';
-import { EvaluatorService } from './evaluator.service.js';
+import { EvaluationEngine } from './evaluation-engine.js';
 import { ValidationError, NotFoundError } from '../errors.js';
 import { ENVIRONMENTS, defaultEnvironments } from '../../../shared/evaluate.js';
 import { validateCreateFlagPayload } from '../../../shared/validate.js';
@@ -16,7 +16,7 @@ import { validateCreateFlagPayload } from '../../../shared/validate.js';
 export class FlagService {
   constructor(
     private flagRepo: FlagRepository,
-    private evaluator: EvaluatorService
+    private engine: EvaluationEngine
   ) {}
 
   createFlag(payload: CreateFlagPayload): FeatureFlag {
@@ -123,7 +123,7 @@ export class FlagService {
       throw new NotFoundError(`Flag not found: ${key}`);
     }
 
-    const result = this.evaluator.evaluateFlag(flag, environment, context);
+    const result = this.engine.evaluateFlag(flag, environment, context);
 
     // Increment evaluation metrics
     this.flagRepo.incrementEvaluationCount(key);
