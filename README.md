@@ -1,198 +1,183 @@
-﻿# TogglePulse 🚦⚡
-> **Multi-Tenant Feature Flagging, Percentage-Based Canary Rollouts & Dynamic Configuration Engine**  
-> *Engineered for High-Throughput Microsecond Evaluation (<1ms), Deterministic Hash Bucketing & Zero-Downtime Safe Deployments*
+# TogglePulse
 
-[![CI Pipeline](https://img.shields.io/badge/CI-Passing-10b981.svg?style=flat-square)](#)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178c6.svg?style=flat-square)](#)
-[![Node.js](https://img.shields.io/badge/Node.js-24-339933.svg?style=flat-square)](#)
-[![Database](https://img.shields.io/badge/Database-SQLite%20WAL%20(Native)-003B57.svg?style=flat-square)](#)
-[![React](https://img.shields.io/badge/React-19-61dafb.svg?style=flat-square)](#)
-[![Algorithm](https://img.shields.io/badge/Algorithm-Deterministic%20SHA--256%20Bucketing-6366f1.svg?style=flat-square)](#)
-[![Docker](https://img.shields.io/badge/Docker-Compose%20Ready-2496ed.svg?style=flat-square)](#)
+TogglePulse is a feature flag service. Teams use it to turn features on for a percentage of users, target specific groups with rules, and switch a feature off in one environment with a kill switch, without redeploying. It has an Express API with SQLite storage and a React console for managing flags and testing what a user would get.
 
----
+[![CI](https://github.com/Taan1el/togglepulse/actions/workflows/ci.yml/badge.svg)](https://github.com/Taan1el/togglepulse/actions/workflows/ci.yml)
+[![Pages](https://github.com/Taan1el/togglepulse/actions/workflows/pages.yml/badge.svg)](https://github.com/Taan1el/togglepulse/actions/workflows/pages.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-## ⚡ Overview
-**TogglePulse** is an enterprise-grade feature flagging and canary deployment platform inspired by LaunchDarkly, Unleash, and modern cloud-native deployment orchestrators. Built for high-concurrency microservices, it provides deterministic percentage rollouts, user targeting rules (semver, geographic/tier attributes, set inclusion), emergency kill switches with microsecond precedence, and an interactive SDK evaluation playground.
+**Live demo:** https://taan1el.github.io/togglepulse/
 
-### Core Capabilities
-1. **Deterministic SHA-256 Hash Bucketing (0-99)**: Users with the same identifier and flag key consistently land in the exact same rollout bucket across any number of stateless backend nodes without sticky sessions or centralized Redis locks.
-2. **Multi-Strategy Targeting Rule Hierarchy**: Evaluates targeted user IDs first, followed by custom attribute predicates (equals, not_equals, contains, in, not_in, greater_than, less_than, semver_gte), before falling back to canary rollout percentages and default values.
-3. **Sub-Millisecond Emergency Kill Switch**: When an incident occurs, flags can be killed with zero latency. The kill switch instantly overrides all rollout percentages and targeting rules, reverting affected services to safe default states within <1ms.
-4. **Interactive SDK Evaluation Sandbox**: Test evaluation outcomes live against arbitrary user contexts, simulating production canary buckets, rule matches, and reason codes (TARGET_MATCH, RULE_MATCH, PERCENTAGE_ROLLOUT, DISABLED, KILLED).
-5. **Real-time Evaluation Telemetry & Audit Trail**: Records every flag toggle, percentage change, and rule mutation with comprehensive audit logs and evaluation counters.
-6. **Zero External Runtime Dependencies**: Built with Node.js 24 native SQLite (DatabaseSync in WAL mode) and native node:crypto, delivering instantaneous local setup with zero Docker prerequisite.
+The demo runs entirely in your browser. The same evaluation and validation code the server uses runs against a fixed set of sample flags held in memory, so it needs no backend. Reloading the page or choosing "Reset sample data" returns to the starting data.
 
----
+## Screenshots
 
-## 🏛️ System Architecture
+![Flags table with the stats strip and environment switch](docs/screenshots/01-dashboard.png)
 
-```mermaid
-graph TD
-    subgraph Client ["Frontend (React 19 + TypeScript + Vite)"]
-        UI[TogglePulse Operations Console]
-        FlagList[Feature Flag Explorer]
-        RolloutCtrl[Canary Rollout Slider & Controls]
-        RuleEditor[Targeting Rules Matrix]
-        EvalPlayground[SDK Live Evaluation Sandbox]
-        AuditFeed[Audit Log & Incident Stream]
+More screenshots: [flag settings with rules and the kill switch](docs/screenshots/02-flag-settings.png), [the evaluation tester with a result](docs/screenshots/03-evaluation-tester.png), [the console at phone width](docs/screenshots/04-mobile.png).
 
-        UI --> FlagList
-        UI --> RolloutCtrl
-        UI --> RuleEditor
-        UI --> EvalPlayground
-        UI --> AuditFeed
-    end
+## Features
 
-    subgraph Server ["Backend (Node.js 24 + Express + Native SQLite WAL)"]
-        API[Express REST Gateway /api]
-        FlagSvc[Flag Lifecycle & Mutation Service]
-        Evaluator[Deterministic Hash & Rule Engine]
-        Repo[Flag & Audit Repository]
+- **Percentage rollouts** per environment (`production`, `staging`, `development`). A user's bucket is a number from 0 to 99 derived from a SHA-256 hash, and the flag is on when the bucket is below the rollout percentage.
+- **Targeting rules** with the operators `EQUALS`, `NOT_EQUALS`, `IN`, `NOT_IN`, `CONTAINS`, `STARTS_WITH` and `SEMVER_GTE`. Rules are checked in order and the first match decides.
+- **Kill switch** per flag and environment. It forces the flag off and keeps the stored rollout and rules, so releasing it resumes the previous configuration.
+- **Evaluation endpoint** that returns the result, the reason and the bucket, and records each evaluation in an audit table with per-flag counters.
+- **Console** with a flags table (state, rollout meter, rule count, evaluations), a settings column for rollout and kill switch, a read-only rules table and an evaluation tester.
+- **GitHub Pages demo** with deterministic sample data.
 
-        API --> FlagSvc
-        API --> Evaluator
-        FlagSvc --> Repo
-        Evaluator --> Repo
-    end
-
-    subgraph Storage ["Persistent Storage"]
-        DB[(SQLite WAL Engine flags.db)]
-        Repo --> DB
-    end
-```
-
----
-
-## 🚀 Deterministic Bucketing Algorithm
-
-To guarantee consistent user allocation without cross-process locking or stateful storage, TogglePulse uses cryptographic hash bucketing:
-
-```
-Bucket(user_id, flag_key) = (SHA256(flag_key + ":" + user_id)[0..4]) % 100
-```
-
-- **Stability**: A user assigned to the 10% canary tier will remain enabled as the canary expands to 25% or 50%.
-- **Independence**: Flag keys are salt-combined, ensuring user distribution is decorrelated across different feature flags.
-- **Zero Drift**: Stateless nodes produce bit-for-bit identical results in <0.1ms.
-
----
-
-## 🛠️ Tech Stack & Engineering Standards
-
-| Layer | Technology | Rationale |
-|---|---|---|
-| **Runtime** | Node.js 24 (ES Modules) | High-performance asynchronous runtime with native crypto & SQLite |
-| **Language** | TypeScript 5.8 (Strict Mode) | Full-stack end-to-end type safety between backend and frontend |
-| **Backend Framework** | Express 4.21 | Clean REST architecture with standard middleware and error boundaries |
-| **Database** | Native SQLite (`DatabaseSync`) | Zero-config relational persistence with Write-Ahead Logging (WAL) |
-| **Frontend** | React 19 + Vite 6 | Modern component hierarchy with fast HMR and optimized bundle output |
-| **Styling** | Modern CSS Variables & Design Tokens | Dark-mode terminal-inspired theme with responsive mobile/desktop layouts |
-| **Testing** | Vitest 3.0 + React Testing Library | Fast unit and integration tests across evaluation logic and UI |
-| **Containerization** | Docker Multi-Stage + Compose | Production alpine container with unprivileged non-root runner |
-| **Architecture** | ADRs (`docs/adr/`) | Recorded decisions on determinism, SQLite WAL, and rule precedence |
-
----
-
-## 🔌 REST API Reference
-
-| Method | Endpoint | Description |
-|---|---|---|
-| `GET` | `/api/health` | Service health check |
-| `GET` | `/api/flags` | List all feature flags with targeting rules |
-| `POST` | `/api/flags` | Create a new feature flag with initial rollout config |
-| `GET` | `/api/flags/:key` | Get flag details, rules, and environment configuration |
-| `PATCH` | `/api/flags/:key/rollout` | Update rollout percentage, enabled state, or kill switch for an environment |
-| `POST` | `/api/flags/:key/killswitch` | Toggle the emergency kill switch (instant override) for an environment |
-| `POST` | `/api/flags/:key/evaluate` | Evaluate a single flag for a user context |
-| `DELETE` | `/api/flags/:key` | Delete a feature flag |
-| `GET` | `/api/flags/:key/stats` | Evaluation counters for a flag (true/false/kill-switch totals) |
-| `GET` | `/api/audits` | Chronological audit trail of flag mutations and evaluations, optionally filtered by `flagKey` |
-
-### Error responses
-
-When creating a flag, `environments` and any supplied `production`, `staging`, or
-`development` configuration must be objects. Supplied `enabled` and
-`killSwitchActive` values must be JSON booleans. Initial `rolloutPercentage` values
-must be finite numbers from 0 through 100 (fractions are supported). Invalid values
-return `400 VALIDATION_ERROR` without creating a flag. Omitted fields keep their
-defaults: enabled, kill switch inactive, no rules, and 0% production / 100% staging
-and development rollout. Creation rejects out-of-range percentages; the rollout
-update endpoint continues to clamp numeric percentages to this range.
-
-Every error response contains a stable `code` and a readable `error` string; clients
-should branch on `code` rather than message text.
-
-| HTTP status | Code | Meaning |
-| --- | --- | --- |
-| 400 | `VALIDATION_ERROR` | The request body failed validation (missing/invalid fields). |
-| 400 | `INVALID_JSON` | The request body could not be parsed as JSON. |
-| 404 | `NOT_FOUND` | The flag, or the requested route, does not exist. |
-| 500 | `INTERNAL_ERROR` | An unexpected server or storage failure prevented the operation. |
-
-Unexpected failures return a generic message; internal exception details are never
-sent to the client.
-
----
-
-## 💻 Quickstart Guide (Zero-Config)
+## Getting started
 
 ### Prerequisites
-- Node.js 22+ (tested on Node.js 24)
-- npm 10+
+- Node.js 22.5 or newer (`node:sqlite` needs 22.5+). CI runs on Node 22 and 24.
+- npm 10 or newer
 
-### 1. Installation
+### Install
 ```bash
 git clone https://github.com/Taan1el/togglepulse.git
 cd togglepulse
 npm install
 ```
 
-### 2. Run Development Environment
+### Run
 ```bash
-# Concurrently starts backend API (port 3001) and Vite frontend (port 5173)
 npm run dev
 ```
-Open **http://localhost:5173** to view the live TogglePulse console.
+This starts the API on port 4000 and the Vite dev server on port 5173. Open **http://localhost:5173**. On first start the server creates `data/togglepulse.db` in its working directory and seeds four sample flags.
 
-### 3. Run Automated Tests & Quality Checks
-```bash
-# Run backend evaluator & integration tests
-npm run test:server
+### Environment variables
+No variable is required for the defaults above.
 
-# Run frontend UI component tests
-npm run test:client
+| Variable | Used by | Default | Purpose |
+|---|---|---|---|
+| `PORT` | server | `4000` | Port the Express server listens on. See `server/.env.example`. |
+| `VITE_API_TARGET` | client, dev only | `http://localhost:4000` | Where the Vite dev server proxies `/api` when the server uses another port. See `client/.env.example`. |
 
-# Run full test suite across workspace
-npm test
+`VITE_DEMO_MODE` is set by `npm run build:pages` itself and should not be set by hand.
 
-# Typecheck and lint
-npm run lint
+### Scripts
 
-# Production build verification
-npm run build
+| Script | What it does |
+|---|---|
+| `npm run dev` | Server (tsx watch) and client (Vite) together |
+| `npm run lint` | Type-check server and client (`tsc --noEmit`) |
+| `npm test` | Server and client test suites |
+| `npm run build` | Compile the server to `server/dist` and bundle the client to `client/dist` |
+| `npm run build:pages` | Bundle the client in demo mode with the `/togglepulse/` base path |
+| `npm start --workspace=server` | Run the compiled server (after `npm run build`) |
+
+## How it works
+
+### Evaluation order
+
+For one flag, one environment and one user context, the first rule that applies decides:
+
+1. No configuration for that environment name: off (`DEFAULT_OFF`).
+2. Kill switch on: off (`KILL_SWITCH`).
+3. Environment disabled: off (`DISABLED`).
+4. Targeting rules, in order: the first match returns that rule's `serveValue` (`RULE_MATCH`).
+5. Percentage rollout: on when `bucket < rolloutPercentage` (`ROLLOUT_BUCKET`).
+
+Rule comparisons are case-insensitive. `userId` can be used as a rule attribute; other attributes come from the request's `attributes` object. A missing attribute never matches, including for `NOT_EQUALS` and `NOT_IN`.
+
+### Bucketing and stickiness
+
+```
+bucket = first 4 bytes of SHA-256("<userId>:<flagKey>") read as a big-endian unsigned integer, modulo 100
 ```
 
----
+- The result depends only on the user ID and the flag key. It does not depend on the rollout percentage, on the server, or on any stored assignment, so the same user gets the same bucket on every evaluation and every node.
+- Raising a percentage from 10 to 25 keeps everyone who was in at 10 and adds more users; lowering it removes users from the top down. This holds as long as the flag key and the rules do not change. A matching rule, a kill switch or a disabled environment takes priority over the bucket.
+- Different flag keys hash differently, so being early in one rollout says nothing about another.
+- Buckets are close to evenly spread, but with a small number of users the enabled share can differ noticeably from the percentage.
+- No assignment is stored. Each evaluation does record an audit row and increments the flag's counter.
 
-## 🐳 Docker Deployment
+### Project layout
 
-Run the complete multi-stage containerized environment with one command:
+```
+shared/    Types, evaluation logic, a synchronous SHA-256, validation and sample data.
+           Used by the server and by the browser demo.
+server/    Express app: routes, controller, FlagService, repository, SQLite schema and seed
+client/    React 19 + Vite console, demo data layer (src/services/demoApi.ts), tests
+docs/      Architecture decision records and screenshots
+```
+
+The client imports its data functions from `client/src/services/index.ts`, which uses the real API normally and the in-browser adapter in the Pages build.
+
+## API reference
+
+Base path `/api`. Responses are `{ "success": true, "data": ... }` or `{ "success": false, "code": "...", "error": "..." }`.
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/api/health` | Service health check |
+| `GET` | `/api/flags` | List flags, newest update first |
+| `POST` | `/api/flags` | Create a flag |
+| `GET` | `/api/flags/:key` | Get one flag with its environments and rules |
+| `PATCH` | `/api/flags/:key/rollout` | Update `rolloutPercentage`, `enabled` or `killSwitchActive` for an `environment` |
+| `POST` | `/api/flags/:key/killswitch` | Body `{ "environment": "production", "active": true }` |
+| `POST` | `/api/flags/:key/evaluate` | Body `{ "environment": "production", "context": { "userId": "u1", "attributes": { "country": "EE" } } }` |
+| `DELETE` | `/api/flags/:key` | Delete a flag and its audit rows |
+| `GET` | `/api/flags/:key/stats` | Counts of evaluations, true results and kill switch results |
+| `GET` | `/api/audits` | Recent evaluations, optionally `?flagKey=` and `?limit=` (default 50, at most 500) |
+
+### Creating a flag
+
+`key` and `name` are required. The key is trimmed, lowercased, and every character other than letters, digits, `_` and `-` becomes `_`. `tags` must be an array. `environments` may contain `production`, `staging` and `development` objects with `enabled`, `killSwitchActive` (booleans), `rolloutPercentage` (a finite number from 0 to 100, fractions allowed) and `rules`. Each rule needs a unique string `id`, an `attribute`, an `operator` from the list above, an array of string `values` and a boolean `serveValue`. Omitted fields default to enabled, kill switch off, no rules, and 0% in production and 100% in staging and development. The rollout endpoint clamps percentages to 0 to 100 instead of rejecting them, and only accepts the three environment names.
+
+Rules can only be set when a flag is created. There is no endpoint or console control for editing them afterwards.
+
+### Errors
+
+| HTTP status | Code | Meaning |
+|---|---|---|
+| 400 | `VALIDATION_ERROR` | The request failed validation |
+| 400 | `INVALID_JSON` | The body is not valid JSON |
+| 404 | `NOT_FOUND` | The flag or the route does not exist |
+| 500 | `INTERNAL_ERROR` | Unexpected failure; the message is generic and details stay in the server log |
+
+## Testing
+
+```bash
+npm test
+```
+
+- Server (Vitest and supertest, in-memory SQLite): routes, validation, error contract, rule operators, evaluation precedence, kill switch behavior, bucketing against `node:crypto`, and the rollout superset property.
+- Client (Vitest and Testing Library): the console flows (table, environment switch, filter, rollout, kill switch, tester, create and delete) against a mocked `fetch`, the demo data layer, the demo bar, and the count helper.
+
+No test waits on real timers.
+
+## Deployment
+
+### Docker
+
 ```bash
 docker compose up --build
 ```
-TogglePulse will be accessible at **http://localhost:3001**.
 
----
+The image builds the server and the client, runs as the unprivileged `node` user, and serves the built client and the API on **http://localhost:4000**. The compose file keeps the SQLite database in the `togglepulse-data` volume mounted at `/app/data`.
 
-## 📜 Architecture Decision Records (ADRs)
+### GitHub Pages
 
-Key architectural decisions are documented under [`docs/adr/`](./docs/adr/):
-- [ADR-001: Deterministic SHA-256 Hash Bucketing for Canary Rollouts](./docs/adr/001-deterministic-hash-bucketing.md)
-- [ADR-002: Embedded SQLite WAL for Local Storage and Auditability](./docs/adr/002-embedded-sqlite-wal-storage.md)
-- [ADR-003: Hierarchical Rule Evaluation Order and Emergency Kill Switches](./docs/adr/003-hierarchical-rule-evaluation-order.md)
+`.github/workflows/pages.yml` builds `npm run build:pages` on every push to `main` and uploads `client/dist`. The deploy job is skipped while the repository is private and publishes to `https://taan1el.github.io/togglepulse/` once it is public.
 
----
+## Design notes and limitations
 
-## 📄 License
-MIT License.
+- The interface follows a utilitarian layout: one crimson accent, flat meters with the value printed next to them, status shown as a dot plus text, and no gradients or animation.
+- There is no authentication. Anyone who can reach the API can change flags, so run it behind your own access control.
+- It is a single-node service backed by one SQLite file. Running several instances would need a shared database.
+- Every evaluation writes an audit row and the table is never pruned.
+- Configuration changes (rollout, kill switch, create, delete) are not recorded in the audit trail; only evaluations are.
+- Clients are not notified of changes. Each evaluation reads the current stored configuration.
+- Evaluation latency has not been measured, so no figure is claimed.
+- The demo keeps its data in memory only.
+
+## Roadmap
+
+- Edit targeting rules in the API and the console.
+- API keys for write requests.
+- Record configuration changes in the audit trail and prune old audit rows.
+- Client libraries for evaluating flags from application code.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
