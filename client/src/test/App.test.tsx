@@ -6,7 +6,7 @@ import App from '../App.js';
 const makeFlag = () => ({
   key: 'checkout_v2',
   name: 'One-click checkout',
-  description: 'Streamlined checkout funnel.',
+  description: 'Single-step checkout funnel.',
   tags: ['checkout', 'fintech'],
   environments: {
     production: {
