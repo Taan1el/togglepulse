@@ -4,7 +4,7 @@
 Accepted
 
 ## Context
-When rolling out experimental code or complex integrations to production, critical regressions, memory leaks, or downstream service outages can occur. Engineering teams must have the ability to instantly deactivate a feature across all environments without performing a full code rollback or redeploying Docker containers.
+When rolling out experimental code or complex integrations to production, critical regressions, memory leaks, or downstream service outages can occur. Engineering teams must have the ability to quickly deactivate a feature in an environment without performing a full code rollback or redeploying Docker containers.
 
 Simultaneously, teams need fine-grained control to target specific user segments (such as internal employees, beta testers, or specific countries) before opening the feature up to broader percentage cohorts.
 
@@ -22,5 +22,5 @@ Simultaneously, teams need fine-grained control to target specific user segments
    - State is persisted in SQLite and read by subsequent evaluations. There is no push propagation to clients or guarantee for previously evaluated results.
 
 ## Consequences
-- **Positive**: Immediate emergency mitigation of production incidents with zero deployment latency.
+- **Positive**: A kill switch takes effect for the next evaluation after it is saved, with no redeploy.
 - **Positive**: Safe gradual rollout pipeline allowing targeted canary testing before wide release.

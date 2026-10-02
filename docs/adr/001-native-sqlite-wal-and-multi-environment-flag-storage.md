@@ -8,7 +8,7 @@ Feature flagging and dynamic configuration engines sit in the critical path of a
 
 For TogglePulse, we required:
 1. Zero-dependency local developer execution (`npm run dev` running immediately without external Redis, PostgreSQL, or DynamoDB instances).
-2. Sub-millisecond flag retrieval and evaluation latency.
+2. Flag reads and evaluations served from a local file, with no network hop to a separate datastore.
 3. Durable persistence of evaluation audits to track rollout distributions.
 
 ## Decision
@@ -20,6 +20,6 @@ For TogglePulse, we required:
    - Store environment configurations (`enabled`, `killSwitchActive`, `rolloutPercentage`, `rules`) within a structured JSON column, enabling flexible schema evolution while maintaining relational keys and timestamps.
 
 ## Consequences
-- **Positive**: Blazing fast sub-millisecond evaluation lookups with zero external infrastructure dependencies.
-- **Positive**: Unit and integration test suites instantiate ephemeral `:memory:` SQLite instances with instant teardown and 100% test isolation.
-- **Trade-off**: In large edge deployments, the SQLite database can serve as the primary source of truth, replicating to edge worker nodes via CDN or memory caches.
+- **Positive**: Evaluation reads one row from a local file and there is no separate datastore to run. Latency has not been benchmarked.
+- **Positive**: Unit and integration test suites instantiate ephemeral `:memory:` SQLite instances with fast teardown and no shared state between tests.
+- **Trade-off**: The database is a single file on one node. Running several server instances would need a shared store, which this project does not provide.

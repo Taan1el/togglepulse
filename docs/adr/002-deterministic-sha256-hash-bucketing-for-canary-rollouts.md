@@ -15,8 +15,8 @@ Gradual canary releases (e.g. ramping up a new payment flow from 5% to 25% to 10
 2. **Properties of Deterministic Hashing**:
    - **Consistency**: The same user always lands in the same bucket for a given flag across all sessions and microservices.
    - **Monotonic Progression**: Ramping up from 10% to 25% guarantees that all users who had the feature enabled at 10% will continue to have it enabled at 25%.
-   - **Uniform Distribution**: Cryptographic hashing ensures even distribution across the 100 cohort buckets without clustering bias.
+   - **Uniform Distribution**: SHA-256 output is close to uniform, so buckets fill roughly evenly. With few users the split can differ noticeably from the target percentage.
 
 ## Consequences
-- **Positive**: Zero database read/write overhead per evaluation; runs in microseconds entirely in memory.
+- **Positive**: No per-user assignment is stored; the bucket is recomputed from the hash on every evaluation, so evaluation needs no extra database writes for assignments.
 - **Positive**: Eliminates sticky session caching requirements across client applications.
