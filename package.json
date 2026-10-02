@@ -1,8 +1,19 @@
 {
   "name": "togglepulse",
   "version": "1.0.0",
-  "description": "Multi-Tenant Feature Flagging, Percentage-Based Canary Rollout & Dynamic Configuration Engine",
+  "description": "Feature flag service with kill switches, percentage rollouts and targeting rules",
   "private": true,
+  "homepage": "https://taan1el.github.io/togglepulse/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Taan1el/togglepulse.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Taan1el/togglepulse/issues"
+  },
+  "engines": {
+    "node": ">=22.5.0"
+  },
   "type": "module",
   "workspaces": [
     "server",
@@ -18,17 +29,19 @@
     "test:client": "npm run test --workspace=client",
     "lint": "npm run lint:server && npm run lint:client",
     "lint:server": "npm run lint --workspace=server",
-    "lint:client": "npm run lint --workspace=client"
+    "lint:client": "npm run lint --workspace=client",
+    "build:pages": "npm run build:pages --workspace=client"
   },
   "keywords": [
     "feature-flags",
+    "feature-toggles",
     "canary-rollout",
-    "ab-testing",
+    "percentage-rollout",
     "targeting-rules",
     "kill-switch",
     "react19",
     "sqlite-wal"
   ],
-  "author": "Taaneiel",
+  "author": "Taaniel Vananurm",
   "license": "MIT"
 }
