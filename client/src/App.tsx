@@ -6,12 +6,15 @@ import {
   fetchFlagByKey,
   updateRollout,
   toggleKillSwitch,
-} from './services/api.js';
+  deleteFlag,
+} from './services/index.js';
+import { DemoBanner } from './components/DemoBanner.js';
 import { Header } from './components/Header.js';
-import { FlagList } from './components/FlagList.js';
-import { FlagDetail } from './components/FlagDetail.js';
-import { EvaluationSandbox } from './components/EvaluationSandbox.js';
-import { CreateFlagModal } from './components/CreateFlagModal.js';
+import { StatsBar } from './components/StatsBar.js';
+import { FlagTable } from './components/FlagTable.js';
+import { FlagEditor } from './components/FlagEditor.js';
+import { EvaluationTester } from './components/EvaluationTester.js';
+import { CreateFlagDialog } from './components/CreateFlagDialog.js';
 
 export const App: React.FC = () => {
   const [flags, setFlags] = useState<FeatureFlag[]>([]);
@@ -22,28 +25,31 @@ export const App: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Load flags
+  const closeCreate = useCallback(() => setIsCreateOpen(false), []);
+
   const loadFlags = useCallback(async () => {
     try {
       setLoading(true);
       const data = await fetchFlags();
       setFlags(data);
-      if (data.length > 0 && (!selectedKey || !data.some((f) => f.key === selectedKey))) {
-        setSelectedKey(data[0].key);
-      }
+      setSelectedKey((prev) =>
+        data.length > 0 && (!prev || !data.some((f) => f.key === prev)) ? data[0].key : prev
+      );
+      setError(null);
     } catch (err) {
       console.error('Failed to load flags:', err);
+      setError('Could not load flags. Check that the server is running and try again.');
     } finally {
       setLoading(false);
     }
-  }, [selectedKey]);
+  }, []);
 
   useEffect(() => {
     loadFlags();
   }, [loadFlags]);
 
-  // Load selected flag details
   useEffect(() => {
     if (!selectedKey) {
       setSelectedFlag(null);
@@ -75,9 +81,11 @@ export const App: React.FC = () => {
         rolloutPercentage: pct,
       });
       setSelectedFlag(updated);
+      setError(null);
       loadFlags();
     } catch (err) {
       console.error('Update rollout failed:', err);
+      setError('The rollout change was not saved.');
     } finally {
       setSaving(false);
     }
@@ -89,9 +97,11 @@ export const App: React.FC = () => {
       setSaving(true);
       const updated = await toggleKillSwitch(selectedKey, currentEnv, active);
       setSelectedFlag(updated);
+      setError(null);
       loadFlags();
     } catch (err) {
       console.error('Kill switch toggle failed:', err);
+      setError('The kill switch change was not saved.');
     } finally {
       setSaving(false);
     }
@@ -99,62 +109,68 @@ export const App: React.FC = () => {
 
   const handleDeleteFlag = async () => {
     if (!selectedKey) return;
-    if (!window.confirm(`Are you sure you want to delete flag "${selectedKey}"?`)) return;
+    if (!window.confirm(`Delete flag "${selectedKey}"? This also removes its evaluation history.`)) return;
 
     try {
-      await fetch(`/api/flags/${selectedKey}`, { method: 'DELETE' });
+      await deleteFlag(selectedKey);
       setSelectedKey(null);
       setSelectedFlag(null);
       loadFlags();
     } catch (err) {
       console.error('Delete flag failed:', err);
+      setError('The flag was not deleted.');
     }
   };
 
   return (
     <div className="app-container">
+      <DemoBanner onReset={() => { setSelectedKey(null); loadFlags(); }} />
       <Header
-        currentEnv={currentEnv}
-        onSelectEnv={setCurrentEnv}
-        onOpenCreateModal={() => setIsCreateOpen(true)}
+        onOpenCreate={() => setIsCreateOpen(true)}
         onRefresh={loadFlags}
-        flagCount={flags.length}
+        isLoading={loading}
       />
 
-      <main className="main-content">
-        <div className="workspace-split">
-          <FlagList
-            flags={flags}
-            selectedKey={selectedKey}
-            currentEnv={currentEnv}
-            onSelectFlag={setSelectedKey}
-            loading={loading}
-          />
+      <main className="app-main">
+        {error && <output className="alert alert-error">{error}</output>}
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            <FlagDetail
-              flag={selectedFlag}
-              currentEnv={currentEnv}
-              onUpdateRollout={handleUpdateRollout}
-              onToggleKillSwitch={handleToggleKillSwitch}
-              onDeleteFlag={handleDeleteFlag}
-              saving={saving}
-            />
+        <StatsBar flags={flags} environment={currentEnv} />
 
-            <EvaluationSandbox
-              flag={selectedFlag}
-              currentEnv={currentEnv}
-            />
-          </div>
-        </div>
+        <FlagTable
+          flags={flags}
+          selectedKey={selectedKey}
+          environment={currentEnv}
+          onSelectEnv={setCurrentEnv}
+          onSelectFlag={setSelectedKey}
+          loading={loading}
+        />
+
+        <FlagEditor
+          key={`${selectedFlag?.key ?? "none"}:${currentEnv}`}
+          flag={selectedFlag}
+          environment={currentEnv}
+          onUpdateRollout={handleUpdateRollout}
+          onToggleKillSwitch={handleToggleKillSwitch}
+          onDeleteFlag={handleDeleteFlag}
+          saving={saving}
+        />
+
+        <EvaluationTester flag={selectedFlag} environment={currentEnv} />
       </main>
 
-      <CreateFlagModal
+      <footer className="app-footer">
+        <span>TogglePulse 1.0.0, MIT license</span>
+        <a href="https://github.com/Taan1el/togglepulse" target="_blank" rel="noreferrer">
+          Source on GitHub
+        </a>
+      </footer>
+
+      <CreateFlagDialog
         isOpen={isCreateOpen}
-        onClose={() => setIsCreateOpen(false)}
+        onClose={closeCreate}
         onCreated={(key) => {
-          loadFlags();
           setSelectedKey(key);
+          loadFlags();
         }}
       />
     </div>
