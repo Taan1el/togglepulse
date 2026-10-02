@@ -77,7 +77,7 @@ export const FlagTable: React.FC<FlagTableProps> = ({
           {flags.length === 0 ? 'No flags yet. Create one with New flag.' : 'No flags match this filter.'}
         </p>
       ) : (
-        <div className="table-wrapper" tabIndex={0} aria-label="Flags table, scrolls sideways on narrow screens">
+        <div className="table-wrapper" role="region" tabIndex={0} aria-label="Flags table, scrolls sideways on narrow screens">
           <table className="flags-table">
             <thead>
               <tr>

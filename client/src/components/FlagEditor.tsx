@@ -109,7 +109,7 @@ export const FlagEditor: React.FC<FlagEditorProps> = ({
             </p>
           ) : (
             <>
-              <div className="table-wrapper" tabIndex={0} aria-label="Targeting rules">
+              <div className="table-wrapper" role="region" tabIndex={0} aria-label="Targeting rules">
                 <table className="rules-table">
                   <thead>
                     <tr>
