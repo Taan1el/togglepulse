@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Trash2 } from 'lucide-react';
 import type { FeatureFlag } from '../../../shared/types.js';
 import { describeState, getEnvConfig } from '../utils/flagState.js';
+import { ENV_NAMES } from './FlagMatrix.js';
 
 interface FlagEditorProps {
   flag: FeatureFlag | null;
   environment: string;
+  onSelectEnv: (env: string) => void;
   onUpdateRollout: (pct: number) => void;
   onToggleKillSwitch: (active: boolean) => void;
   onDeleteFlag: () => void;
@@ -15,6 +17,7 @@ interface FlagEditorProps {
 export const FlagEditor: React.FC<FlagEditorProps> = ({
   flag,
   environment,
+  onSelectEnv,
   onUpdateRollout,
   onToggleKillSwitch,
   onDeleteFlag,
@@ -32,7 +35,7 @@ export const FlagEditor: React.FC<FlagEditorProps> = ({
     return (
       <section aria-labelledby="editor-heading">
         <h2 className="section-heading" id="editor-heading">Flag settings</h2>
-        <p className="empty-state">Select a flag in the table to change its rollout or kill switch.</p>
+        <p className="empty-state">Select a flag in the matrix to change its rollout or kill switch.</p>
       </section>
     );
   }
@@ -48,7 +51,21 @@ export const FlagEditor: React.FC<FlagEditorProps> = ({
       </h2>
       <p className="section-description">{flag.description || 'No description.'}</p>
 
-      <div className="editor-split">
+      <div className="env-switch">
+        {ENV_NAMES.map((name) => (
+          <button
+            key={name}
+            type="button"
+            className="env-btn"
+            aria-pressed={environment === name}
+            onClick={() => onSelectEnv(name)}
+          >
+            {name}
+          </button>
+        ))}
+      </div>
+
+      <div className="editor-stack">
         <div className="editor-column">
           <div className="field">
             <div className="field-row">
@@ -102,7 +119,7 @@ export const FlagEditor: React.FC<FlagEditorProps> = ({
             </div>
           </dl>
 
-          <h3 className="panel-heading">Targeting rules ({env.rules.length})</h3>
+          <h3 className="panel-heading">{`Targeting rules (${env.rules.length})`}</h3>
           {env.rules.length === 0 ? (
             <p className="field-help">
               No rules in this environment, so only the rollout percentage decides.

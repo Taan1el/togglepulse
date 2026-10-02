@@ -103,52 +103,55 @@ describe('TogglePulse console', () => {
   it('shows the product header, the three environments and no demo bar', async () => {
     installFetch();
     render(<App />);
+    await screen.findByRole('heading', { name: 'checkout_v2 in production' });
     expect(screen.getByRole('heading', { level: 1, name: 'TogglePulse' })).toBeInTheDocument();
     for (const env of ['production', 'staging', 'development']) {
       expect(screen.getByRole('button', { name: env })).toBeInTheDocument();
     }
     expect(screen.queryByText(/everything runs in your browser/i)).not.toBeInTheDocument();
-    await screen.findByText('One-click checkout');
   });
 
-  it('lists flags in a table with state text, rollout value and rule count', async () => {
+  it('lists flags in a matrix with one cell per environment', async () => {
     installFetch();
     render(<App />);
     await screen.findByText('One-click checkout');
-    const table = document.querySelector('.flags-table') as HTMLElement;
-    const row = within(table).getByRole('button', { name: /One-click checkout/ }).closest('tr')!;
-    expect(within(row).getByText('Rolling out')).toBeInTheDocument();
-    expect(within(row).getByText('40%')).toBeInTheDocument();
-    expect(within(row).getByText('1 rule')).toBeInTheDocument();
-    const dark = within(table).getByRole('button', { name: /Dark theme/ }).closest('tr')!;
-    expect(within(dark).getByText('Off')).toBeInTheDocument();
-    expect(within(dark).getByText('0 rules')).toBeInTheDocument();
+    const matrix = document.querySelector('.matrix') as HTMLElement;
+    const row = within(matrix).getByRole('button', { name: /One-click checkout/ }).closest('tr')!;
+    const production = within(row).getByRole('button', { name: /in production/ });
+    expect(within(production).getByText('40%')).toBeInTheDocument();
+    expect(within(production).getByText('Rolling out')).toBeInTheDocument();
+    expect(within(row).getByText('120 evaluations')).toBeInTheDocument();
+    const staging = within(row).getByRole('button', { name: /in staging/ });
+    expect(within(staging).getByText('Live')).toBeInTheDocument();
+    const dark = within(matrix).getByRole('button', { name: /Dark theme/ }).closest('tr')!;
+    expect(within(dark).getByText('1 evaluation')).toBeInTheDocument();
+    expect(within(dark).getAllByText('Off')).toHaveLength(3);
+    // dark_theme has no staging or development config, so those read as off at 0%
+    expect(within(dark).getByRole('button', { name: /in staging, 0% rollout/ })).toBeInTheDocument();
   });
 
-  it('summarizes the selected environment in one stats strip', async () => {
+  it('counts live flags in each environment column', async () => {
     installFetch();
     render(<App />);
     await screen.findByText('One-click checkout');
-    const strip = document.querySelector('.stats-strip') as HTMLElement;
-    expect(within(strip).getByText('Flags').nextSibling).toHaveTextContent('2');
-    expect(within(strip).getByText('Rolling out').nextSibling).toHaveTextContent('1');
-    expect(within(strip).getByText('Evaluations').nextSibling).toHaveTextContent('121');
+    const headers = within(document.querySelector('.matrix thead') as HTMLElement);
+    expect(headers.getByText('production', { selector: '.env-name' }).nextSibling).toHaveTextContent('0 live');
+    expect(headers.getByText('staging', { selector: '.env-name' }).nextSibling).toHaveTextContent('1 live');
   });
 
-  it('switches environment and shows that environment settings', async () => {
+  it('opens the drawer for the clicked environment cell', async () => {
     const user = userEvent.setup();
     installFetch();
     render(<App />);
     await screen.findByText('One-click checkout');
-    await user.click(screen.getByRole('button', { name: 'staging' }));
-    expect(screen.getByRole('heading', { name: 'Flags in staging' })).toBeInTheDocument();
-    const row = screen.getByRole('button', { name: /One-click checkout/ }).closest('tr')!;
-    expect(within(row).getByText('Live')).toBeInTheDocument();
-    // dark_theme has no staging config, so it reads as off at 0%
-    expect(within(screen.getByRole('button', { name: /Dark theme/ }).closest('tr')!).getByText('0%')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /Open checkout_v2 in staging/ }));
+    expect(await screen.findByRole('heading', { name: 'checkout_v2 in staging' })).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'development' }));
+    expect(screen.getByRole('heading', { name: 'checkout_v2 in development' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'development' })).toHaveAttribute('aria-pressed', 'true');
   });
 
-  it('filters the table by name, key or tag', async () => {
+  it('filters the matrix by name, key or tag', async () => {
     const user = userEvent.setup();
     installFetch();
     render(<App />);
@@ -159,6 +162,15 @@ describe('TogglePulse console', () => {
     await user.clear(screen.getByLabelText(/filter flags/i));
     await user.type(screen.getByLabelText(/filter flags/i), 'nothing-matches');
     expect(screen.getByText('No flags match this filter.')).toBeInTheDocument();
+  });
+
+  it('focuses the command bar when / is pressed', async () => {
+    const user = userEvent.setup();
+    installFetch();
+    render(<App />);
+    await screen.findByText('One-click checkout');
+    await user.keyboard('/');
+    expect(screen.getByLabelText(/filter flags/i)).toHaveFocus();
   });
 
   it('applies a rollout change through the PATCH endpoint', async () => {
@@ -192,13 +204,37 @@ describe('TogglePulse console', () => {
       method: 'POST',
       body: { environment: 'production', active: true },
     });
-    const row = screen.getByRole('button', { name: /One-click checkout/ }).closest('tr')!;
-    await waitFor(() => expect(within(row).getByText('Kill switch on')).toBeInTheDocument());
+    const row = () => screen.getByRole('button', { name: /One-click checkout/ }).closest('tr')!;
+    await waitFor(() => expect(within(row()).getByText('Kill switch on')).toBeInTheDocument());
+    const pinned = document.querySelector('tbody.pinned') as HTMLElement;
+    expect(within(pinned).getByRole('button', { name: /One-click checkout/ })).toBeInTheDocument();
+    expect(within(pinned).getByRole('switch', { name: 'Kill switch for checkout_v2 in production' })).toBeChecked();
     expect(screen.getByRole('button', { name: 'Apply rollout' })).toBeDisabled();
 
     await user.click(screen.getByRole('button', { name: 'Release kill switch' }));
     await waitFor(() => expect(screen.getByRole('button', { name: 'Trigger kill switch' })).toBeInTheDocument());
     expect(calls.filter((c) => c.url.endsWith('/killswitch')).at(-1)!.body.active).toBe(false);
+    expect(screen.getByText('No kill switch is engaged in any environment.')).toBeInTheDocument();
+  });
+
+  it('flips a kill switch from its matrix cell and selects that cell', async () => {
+    const user = userEvent.setup();
+    const calls = installFetch();
+    render(<App />);
+    await screen.findByText('One-click checkout');
+    const toggle = screen.getByRole('switch', { name: 'Kill switch for checkout_v2 in staging' });
+    expect(toggle).not.toBeChecked();
+    await user.click(toggle);
+    await waitFor(() =>
+      expect(calls.find((c) => c.url.endsWith('/killswitch'))).toMatchObject({
+        method: 'POST',
+        body: { environment: 'staging', active: true },
+      })
+    );
+    expect(await screen.findByRole('heading', { name: 'checkout_v2 in staging' })).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByRole('switch', { name: 'Kill switch for checkout_v2 in staging' })).toBeChecked()
+    );
   });
 
   it('shows targeting rules of the selected flag', async () => {
@@ -274,7 +310,7 @@ describe('TogglePulse console', () => {
     const confirm = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true);
     render(<App />);
     await screen.findByText('One-click checkout');
-    await user.click(screen.getByRole('button', { name: /Delete flag/ }));
+    await user.click(await screen.findByRole('button', { name: /Delete flag/ }));
     expect(calls.some((c) => c.method === 'DELETE')).toBe(false);
     await user.click(screen.getByRole('button', { name: /Delete flag/ }));
     await waitFor(() => expect(calls.some((c) => c.method === 'DELETE' && c.url === '/api/flags/checkout_v2')).toBe(true));

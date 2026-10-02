@@ -1,20 +1,21 @@
 :root {
-  --paper: #faf9f6;        /* page background */
-  --surface: #ffffff;      /* panels, tables */
-  --ink: #17160f;          /* primary text */
-  --ink-2: #57544b;        /* secondary text */
-  --ink-3: #8a867b;        /* tertiary text, placeholders */
-  --rule: #e3e0d7;         /* borders and dividers */
-  --rule-strong: #cfcabd;  /* input borders, table header rule */
-  --accent: #be123c;       /* togglepulse: crimson, flags */
-  --accent-ink: #ffffff;   /* text on accent fills */
-  --accent-soft: color-mix(in srgb, var(--accent) 10%, var(--surface));
-  /* status colors are data, not decoration: use only for status text, dots, small badges and meter fills */
-  --ok: #1f7a4d;
-  --warn: #a15c00;
-  --bad: #b3261e;
-  --radius: 6px;
-  --font-heading: "Sora Variable", "Sora", ui-sans-serif, system-ui, sans-serif;
-  --font-body: "Geist Variable", "Geist", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "Geist Mono Variable", "Geist Mono", ui-monospace, "SFMono-Regular", monospace;
+  color-scheme: dark;
+  --paper: #111317;        /* page background */
+  --surface: #181b21;      /* panels, matrix, drawer */
+  --surface-2: #1f232b;    /* raised controls inside panels */
+  --ink: #ecebe7;          /* primary text */
+  --ink-2: #b5b3ab;        /* secondary text */
+  --ink-3: #94928b;        /* tertiary text, placeholders */
+  --rule: #2a2e36;         /* borders and dividers */
+  --rule-strong: #4a505c;  /* control borders */
+  --accent: #ff5c7a;       /* togglepulse: switchboard pink */
+  --accent-ink: #1a0a0e;   /* text on accent fills */
+  /* status colors encode status only: text, dots, switch tracks, meter fills */
+  --ok: #5fd08f;
+  --warn: #f0b44c;
+  --bad: #ff8f6b;
+  --radius: 10px;
+  --font-heading: "Manrope Variable", "Manrope", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Onest Variable", "Onest", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Chivo Mono Variable", "Chivo Mono", ui-monospace, "SFMono-Regular", monospace;
 }

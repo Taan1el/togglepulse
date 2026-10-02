@@ -10,8 +10,7 @@ import {
 } from './services/index.js';
 import { DemoBanner } from './components/DemoBanner.js';
 import { Header } from './components/Header.js';
-import { StatsBar } from './components/StatsBar.js';
-import { FlagTable } from './components/FlagTable.js';
+import { FlagMatrix } from './components/FlagMatrix.js';
 import { FlagEditor } from './components/FlagEditor.js';
 import { EvaluationTester } from './components/EvaluationTester.js';
 import { CreateFlagDialog } from './components/CreateFlagDialog.js';
@@ -21,6 +20,7 @@ export const App: React.FC = () => {
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [selectedFlag, setSelectedFlag] = useState<FeatureFlag | null>(null);
   const [currentEnv, setCurrentEnv] = useState<string>('production');
+  const [query, setQuery] = useState('');
 
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -91,11 +91,12 @@ export const App: React.FC = () => {
     }
   };
 
-  const handleToggleKillSwitch = async (active: boolean) => {
-    if (!selectedKey) return;
+  const handleToggleKillSwitch = async (key: string, env: string, active: boolean) => {
+    setSelectedKey(key);
+    setCurrentEnv(env);
     try {
       setSaving(true);
-      const updated = await toggleKillSwitch(selectedKey, currentEnv, active);
+      const updated = await toggleKillSwitch(key, env, active);
       setSelectedFlag(updated);
       setError(null);
       loadFlags();
@@ -105,6 +106,11 @@ export const App: React.FC = () => {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleSelectCell = (key: string, env: string) => {
+    setSelectedKey(key);
+    setCurrentEnv(env);
   };
 
   const handleDeleteFlag = async () => {
@@ -126,6 +132,8 @@ export const App: React.FC = () => {
     <div className="app-container">
       <DemoBanner onReset={() => { setSelectedKey(null); loadFlags(); }} />
       <Header
+        query={query}
+        onQueryChange={setQuery}
         onOpenCreate={() => setIsCreateOpen(true)}
         onRefresh={loadFlags}
         isLoading={loading}
@@ -134,28 +142,32 @@ export const App: React.FC = () => {
       <main className="app-main">
         {error && <output className="alert alert-error">{error}</output>}
 
-        <StatsBar flags={flags} environment={currentEnv} />
+        <div className="workspace">
+          <FlagMatrix
+            flags={flags}
+            query={query}
+            selectedKey={selectedKey}
+            environment={currentEnv}
+            onSelectCell={handleSelectCell}
+            onToggleKillSwitch={handleToggleKillSwitch}
+            loading={loading}
+          />
 
-        <FlagTable
-          flags={flags}
-          selectedKey={selectedKey}
-          environment={currentEnv}
-          onSelectEnv={setCurrentEnv}
-          onSelectFlag={setSelectedKey}
-          loading={loading}
-        />
+          <aside className="drawer" aria-label="Selected flag">
+            <FlagEditor
+              key={`${selectedFlag?.key ?? "none"}:${currentEnv}`}
+              flag={selectedFlag}
+              environment={currentEnv}
+              onSelectEnv={setCurrentEnv}
+              onUpdateRollout={handleUpdateRollout}
+              onToggleKillSwitch={(active) => selectedKey && handleToggleKillSwitch(selectedKey, currentEnv, active)}
+              onDeleteFlag={handleDeleteFlag}
+              saving={saving}
+            />
 
-        <FlagEditor
-          key={`${selectedFlag?.key ?? "none"}:${currentEnv}`}
-          flag={selectedFlag}
-          environment={currentEnv}
-          onUpdateRollout={handleUpdateRollout}
-          onToggleKillSwitch={handleToggleKillSwitch}
-          onDeleteFlag={handleDeleteFlag}
-          saving={saving}
-        />
-
-        <EvaluationTester flag={selectedFlag} environment={currentEnv} />
+            <EvaluationTester flag={selectedFlag} environment={currentEnv} />
+          </aside>
+        </div>
       </main>
 
       <footer className="app-footer">
