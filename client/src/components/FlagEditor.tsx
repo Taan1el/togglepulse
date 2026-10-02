@@ -75,23 +75,6 @@ export const FlagEditor: React.FC<FlagEditorProps> = ({
             {saving ? 'Updating' : 'Apply rollout'}
           </button>
 
-          <div className={`kill-panel ${killed ? 'active' : ''}`}>
-            <h3 className="panel-heading">Kill switch</h3>
-            <p className="field-help">
-              {killed
-                ? 'On. This flag returns false for everyone in this environment. The rollout and rules are kept.'
-                : 'Off. Turning it on makes this flag return false for everyone in this environment.'}
-            </p>
-            <button
-              type="button"
-              className={`btn ${killed ? 'btn-secondary' : 'btn-danger'}`}
-              onClick={() => onToggleKillSwitch(!killed)}
-              disabled={saving}
-            >
-              {killed ? 'Release kill switch' : 'Trigger kill switch'}
-            </button>
-          </div>
-
           <button type="button" className="btn btn-tertiary" onClick={onDeleteFlag}>
             <Trash2 size={16} strokeWidth={1.75} aria-hidden="true" />
             Delete flag
@@ -151,6 +134,24 @@ export const FlagEditor: React.FC<FlagEditorProps> = ({
               <p className="field-help">Rules are checked in order before the rollout; the first match decides.</p>
             </>
           )}
+
+          <div className={`kill-panel ${killed ? 'active' : ''}`}>
+            <h3 className="panel-heading">Kill switch</h3>
+            <p className="field-help">
+              {killed
+                ? 'On. This flag returns false for everyone in this environment. The rollout and rules are kept.'
+                : 'Off. Turning it on makes this flag return false for everyone in this environment.'}
+            </p>
+            <button
+              type="button"
+              className={`btn ${killed ? 'btn-secondary' : 'btn-danger'}`}
+              onClick={() => onToggleKillSwitch(!killed)}
+              disabled={saving}
+            >
+              {killed ? 'Release kill switch' : 'Trigger kill switch'}
+            </button>
+          </div>
+
         </div>
       </div>
     </section>

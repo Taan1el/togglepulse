@@ -1,7 +1,6 @@
 import React from 'react';
 import type { FeatureFlag } from '../../../shared/types.js';
 import { describeState, getEnvConfig } from '../utils/flagState.js';
-import { formatCount } from '../utils/pluralize.js';
 
 interface StatsBarProps {
   flags: FeatureFlag[];
@@ -23,7 +22,7 @@ export const StatsBar: React.FC<StatsBarProps> = ({ flags, environment }) => {
       <div className="stat-cell">
         <span className="stat-label">Live at 100%</span>
         <span className="stat-value">{count('live')}</span>
-        <span className="stat-note">{formatCount(count('live'), 'flag')}</span>
+        <span className="stat-note">serving every user</span>
       </div>
       <div className="stat-cell">
         <span className="stat-label">Rolling out</span>
@@ -33,7 +32,7 @@ export const StatsBar: React.FC<StatsBarProps> = ({ flags, environment }) => {
       <div className="stat-cell">
         <span className="stat-label">Kill switches on</span>
         <span className="stat-value">{count('killed')}</span>
-        <span className="stat-note">{formatCount(count('off'), 'flag')} switched off</span>
+        <span className="stat-note">{count('off')} switched off</span>
       </div>
       <div className="stat-cell">
         <span className="stat-label">Evaluations</span>

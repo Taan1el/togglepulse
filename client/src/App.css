@@ -223,7 +223,7 @@ textarea {
 
 .stat-note {
   font-size: 12px;
-  color: var(--ink-3);
+  color: var(--ink-2);
   font-family: var(--font-mono);
 }
 
@@ -422,7 +422,7 @@ textarea {
 .search-field svg {
   position: absolute;
   left: 0.75rem;
-  color: var(--ink-3);
+  color: var(--ink-2);
   pointer-events: none;
 }
 
@@ -588,7 +588,7 @@ table {
 
 /* ---- TogglePulse additions ---- */
 
-.status-dot.neutral { background-color: var(--ink-3); }
+.status-dot.neutral { background-color: transparent; border: 1.5px solid var(--ink-3); }
 
 .field input[type="range"] {
   width: 100%;
@@ -701,7 +701,6 @@ table {
 
 .flags-table tbody tr:hover { background-color: var(--accent-soft); }
 
-.flags-table tbody tr.selected { background-color: var(--accent-soft); }
 
 .flags-table tbody tr.selected td:first-child { border-left: 3px solid var(--accent); }
 
@@ -737,6 +736,7 @@ table {
 
 .flag-name { color: var(--ink); font-weight: 500; font-size: 14px; }
 .flag-key { color: var(--ink-2); font-family: var(--font-mono); font-size: 12px; }
+.flag-link[aria-current="true"] .flag-name { color: var(--accent); }
 .flag-link:hover .flag-name { color: var(--accent); text-decoration: underline; }
 
 .meter-row {
@@ -755,7 +755,7 @@ table {
 }
 
 .meter-fill { display: block; height: 100%; background-color: var(--accent); }
-.meter.inactive .meter-fill { background-color: var(--ink-3); }
+.meter.inactive .meter-fill { background-color: transparent; outline: 1px solid var(--ink-3); outline-offset: -1px; border-radius: 999px; }
 
 .meter-value { min-width: 4ch; text-align: right; font-size: 13px; }
 
@@ -794,6 +794,7 @@ table {
   margin-top: 0.5rem;
 }
 
+.kill-panel { max-width: 560px; }
 .kill-panel.active { border-left-color: var(--bad); }
 
 /* Evaluation tester */
@@ -805,11 +806,15 @@ table {
 }
 
 .tester-form {
-  display: flex;
-  flex-direction: column;
-  gap: 1.1rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.1rem 0.75rem;
   min-width: 0;
 }
+
+.tester-form .wide { grid-column: 1 / -1; }
+
+.tester-form .field { min-width: 0; }
 
 .result-panel .result-list dd { overflow-wrap: anywhere; }
 
@@ -873,6 +878,8 @@ table {
 }
 
 @media (max-width: 640px) {
+  .stat-note { display: none; }
+  .stat-cell { padding: 0.75rem 1rem; }
   .header-actions { width: 100%; flex-wrap: wrap; }
   .explorer-controls { width: 100%; }
   .env-switch { width: 100%; }

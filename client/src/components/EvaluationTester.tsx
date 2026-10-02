@@ -46,7 +46,7 @@ export const EvaluationTester: React.FC<EvaluationTesterProps> = ({ flag, enviro
 
       <div className="tester-section">
         <form className="tester-form" onSubmit={handleEvaluate}>
-          <div className="field">
+          <div className="field wide">
             <label className="field-label" htmlFor="tester-user">User ID</label>
             <input id="tester-user" type="text" value={userId} onChange={(e) => setUserId(e.target.value)} />
           </div>
@@ -61,14 +61,6 @@ export const EvaluationTester: React.FC<EvaluationTesterProps> = ({ flag, enviro
             />
           </div>
           <div className="field">
-            <label className="field-label" htmlFor="tester-role">Role</label>
-            <select id="tester-role" value={role} onChange={(e) => setRole(e.target.value)}>
-              <option value="user">Standard user</option>
-              <option value="beta_tester">Beta tester</option>
-              <option value="admin">Administrator</option>
-            </select>
-          </div>
-          <div className="field">
             <label className="field-label" htmlFor="tester-version">App version</label>
             <input
               id="tester-version"
@@ -78,7 +70,15 @@ export const EvaluationTester: React.FC<EvaluationTesterProps> = ({ flag, enviro
               placeholder="2.4.0"
             />
           </div>
-          <button type="submit" className="btn btn-primary" disabled={loading || !userId.trim()}>
+          <div className="field wide">
+            <label className="field-label" htmlFor="tester-role">Role</label>
+            <select id="tester-role" value={role} onChange={(e) => setRole(e.target.value)}>
+              <option value="user">Standard user</option>
+              <option value="beta_tester">Beta tester</option>
+              <option value="admin">Administrator</option>
+            </select>
+          </div>
+          <button type="submit" className="btn btn-primary wide" disabled={loading || !userId.trim()}>
             {loading ? 'Evaluating' : 'Evaluate flag'}
           </button>
         </form>
