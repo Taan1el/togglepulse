@@ -28,6 +28,30 @@ export class FlagService {
       throw new ValidationError('Tags must be an array of strings');
     }
 
+    if (payload.environments !== undefined) {
+      if (!payload.environments || typeof payload.environments !== 'object' || Array.isArray(payload.environments)) {
+        throw new ValidationError('environments must be an object');
+      }
+      for (const environment of ['production', 'staging', 'development']) {
+        const config = payload.environments[environment];
+        if (config === undefined) continue;
+        if (!config || typeof config !== 'object' || Array.isArray(config)) {
+          throw new ValidationError(`environments.${environment} must be an object`);
+        }
+        for (const field of ['enabled', 'killSwitchActive'] as const) {
+          if (config[field] !== undefined && typeof config[field] !== 'boolean') {
+            throw new ValidationError(`environments.${environment}.${field} must be a boolean`);
+          }
+        }
+        const percentage = config.rolloutPercentage;
+        if (percentage !== undefined && (
+          typeof percentage !== 'number' || !Number.isFinite(percentage) || percentage < 0 || percentage > 100
+        )) {
+          throw new ValidationError(`environments.${environment}.rolloutPercentage must be a finite number between 0 and 100`);
+        }
+      }
+    }
+
     const cleanKey = trimmedKey.toLowerCase().replace(/[^a-z0-9_-]/g, '_');
 
     const existing = this.flagRepo.getFlagByKey(cleanKey);

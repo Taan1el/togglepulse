@@ -111,6 +111,15 @@ Bucket(user_id, flag_key) = (SHA256(flag_key + ":" + user_id)[0..4]) % 100
 
 ### Error responses
 
+When creating a flag, `environments` and any supplied `production`, `staging`, or
+`development` configuration must be objects. Supplied `enabled` and
+`killSwitchActive` values must be JSON booleans. Initial `rolloutPercentage` values
+must be finite numbers from 0 through 100 (fractions are supported). Invalid values
+return `400 VALIDATION_ERROR` without creating a flag. Omitted fields keep their
+defaults: enabled, kill switch inactive, no rules, and 0% production / 100% staging
+and development rollout. Creation rejects out-of-range percentages; the rollout
+update endpoint continues to clamp numeric percentages to this range.
+
 Every error response contains a stable `code` and a readable `error` string; clients
 should branch on `code` rather than message text.
 
