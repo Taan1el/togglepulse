@@ -4,6 +4,14 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [Unreleased]
+
+### Changed
+- New visual identity: a dark switchboard. A search bar sits at the top, flags are rows and environments are columns, and every cell has its own kill switch toggle with the rollout percentage and state beside it.
+- Flags with an engaged kill switch are pinned in their own group above the rest.
+- The selected flag opens in a drawer on the right with the rollout slider, targeting rules, kill switch and evaluation tester. On phones each flag stacks over its three environments.
+- Replaced the Sora, Geist and Geist Mono fonts with Manrope, Onest and Chivo Mono, and removed the stats strip.
+
 ## [1.0.0] - 2026-10-02
 
 ### Added

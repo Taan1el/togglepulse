@@ -111,8 +111,10 @@ export const FlagMatrix: React.FC<FlagMatrixProps> = ({
   const groupRow = (title: string, count: number, id: string) => (
     <tr className="group-row">
       <th scope="colgroup" colSpan={ENV_NAMES.length + 1} id={id}>
-        {title}
-        <span className="mono">{count}</span>
+        <div className="group-inner">
+          <span>{title}</span>
+          <span className="mono">{count}</span>
+        </div>
       </th>
     </tr>
   );

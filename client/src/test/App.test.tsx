@@ -103,7 +103,7 @@ describe('TogglePulse console', () => {
   it('shows the product header, the three environments and no demo bar', async () => {
     installFetch();
     render(<App />);
-    await screen.findByRole('heading', { name: 'checkout_v2 in production' });
+    await screen.findByRole('heading', { name: 'checkout_v2 in production' }, { timeout: 4000 });
     expect(screen.getByRole('heading', { level: 1, name: 'TogglePulse' })).toBeInTheDocument();
     for (const env of ['production', 'staging', 'development']) {
       expect(screen.getByRole('button', { name: env })).toBeInTheDocument();

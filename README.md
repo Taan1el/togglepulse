@@ -12,9 +12,9 @@ The demo runs entirely in your browser. The same evaluation and validation code 
 
 ## Screenshots
 
-![Flags table with the stats strip and environment switch](docs/screenshots/01-dashboard.png)
+![Toggle matrix with flags as rows, environments as columns and the detail drawer](docs/screenshots/01-dashboard.png)
 
-More screenshots: [flag settings with rules and the kill switch](docs/screenshots/02-flag-settings.png), [the evaluation tester with a result](docs/screenshots/03-evaluation-tester.png), [the console at phone width](docs/screenshots/04-mobile.png).
+More screenshots: [flag settings with rules and the kill switch](docs/screenshots/02-flag-settings.png), [the evaluation tester with a result](docs/screenshots/03-evaluation-tester.png), [the console at phone width, with each flag stacked over its three environments](docs/screenshots/04-mobile.png).
 
 ## Features
 
@@ -22,7 +22,7 @@ More screenshots: [flag settings with rules and the kill switch](docs/screenshot
 - **Targeting rules** with the operators `EQUALS`, `NOT_EQUALS`, `IN`, `NOT_IN`, `CONTAINS`, `STARTS_WITH` and `SEMVER_GTE`. Rules are checked in order and the first match decides.
 - **Kill switch** per flag and environment. It forces the flag off and keeps the stored rollout and rules, so releasing it resumes the previous configuration.
 - **Evaluation endpoint** that returns the result, the reason and the bucket, and records each evaluation in an audit table with per-flag counters.
-- **Console** with a flags table (state, rollout meter, rule count, evaluations), a settings column for rollout and kill switch, a read-only rules table and an evaluation tester.
+- **Console** on a dark ground: a command bar to filter flags, a toggle matrix with one row per flag and one column per environment (kill switch toggle, rollout percentage and state in every cell), a pinned group for flags with an engaged kill switch, and a right-side drawer with the rollout slider, the read-only rules table, the kill switch and the evaluation tester.
 - **GitHub Pages demo** with deterministic sample data.
 
 ## Getting started
@@ -142,7 +142,7 @@ npm test
 ```
 
 - Server (Vitest and supertest, in-memory SQLite): routes, validation, error contract, rule operators, evaluation precedence, kill switch behavior, bucketing against `node:crypto`, and the rollout superset property.
-- Client (Vitest and Testing Library): the console flows (table, environment switch, filter, rollout, kill switch, tester, create and delete) against a mocked `fetch`, the demo data layer, the demo bar, and the count helper.
+- Client (Vitest and Testing Library): the console flows (matrix, environment cells, filter, rollout, kill switch, tester, create and delete) against a mocked `fetch`, the demo data layer, the demo bar, and the count helper.
 
 No test waits on real timers.
 
