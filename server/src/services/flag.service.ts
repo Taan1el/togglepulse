@@ -10,6 +10,7 @@ import type {
 import { FlagRepository } from '../repositories/flag.repository.js';
 import { EvaluatorService } from './evaluator.service.js';
 import { ValidationError, NotFoundError } from '../errors.js';
+import { ENVIRONMENTS, RULE_OPERATORS } from '../../../shared/evaluate.js';
 
 export class FlagService {
   constructor(
@@ -32,7 +33,7 @@ export class FlagService {
       if (!payload.environments || typeof payload.environments !== 'object' || Array.isArray(payload.environments)) {
         throw new ValidationError('environments must be an object');
       }
-      for (const environment of ['production', 'staging', 'development']) {
+      for (const environment of ENVIRONMENTS) {
         const config = payload.environments[environment];
         if (config === undefined) continue;
         if (!config || typeof config !== 'object' || Array.isArray(config)) {
@@ -48,6 +49,9 @@ export class FlagService {
           typeof percentage !== 'number' || !Number.isFinite(percentage) || percentage < 0 || percentage > 100
         )) {
           throw new ValidationError(`environments.${environment}.rolloutPercentage must be a finite number between 0 and 100`);
+        }
+        if (config.rules !== undefined) {
+          this.validateRules(config.rules, environment);
         }
       }
     }
@@ -102,6 +106,35 @@ export class FlagService {
     return flag;
   }
 
+  private validateRules(rules: unknown, environment: string): void {
+    if (!Array.isArray(rules)) {
+      throw new ValidationError(`environments.${environment}.rules must be an array`);
+    }
+    const seen = new Set<string>();
+    for (const rule of rules) {
+      const where = `environments.${environment}.rules`;
+      if (!rule || typeof rule !== 'object' || Array.isArray(rule)) {
+        throw new ValidationError(`${where} entries must be objects`);
+      }
+      if (typeof rule.id !== 'string' || !rule.id || seen.has(rule.id)) {
+        throw new ValidationError(`${where} entries need a unique string id`);
+      }
+      seen.add(rule.id);
+      if (typeof rule.attribute !== 'string' || !rule.attribute) {
+        throw new ValidationError(`${where} entries need an attribute`);
+      }
+      if (!RULE_OPERATORS.includes(rule.operator)) {
+        throw new ValidationError(`${where} operator must be one of ${RULE_OPERATORS.join(', ')}`);
+      }
+      if (!Array.isArray(rule.values) || rule.values.some((v: unknown) => typeof v !== 'string')) {
+        throw new ValidationError(`${where} values must be an array of strings`);
+      }
+      if (typeof rule.serveValue !== 'boolean') {
+        throw new ValidationError(`${where} serveValue must be a boolean`);
+      }
+    }
+  }
+
   getFlag(key: string): FeatureFlag | null {
     return this.flagRepo.getFlagByKey(key);
   }
@@ -128,7 +161,10 @@ export class FlagService {
       throw new ValidationError('killSwitchActive must be a boolean');
     }
 
-    const env = payload.environment || 'production';
+    const env = payload.environment ?? 'production';
+    if (!(ENVIRONMENTS as readonly string[]).includes(env)) {
+      throw new ValidationError(`environment must be one of ${ENVIRONMENTS.join(', ')}`);
+    }
     const currentEnv = flag.environments[env] || {
       enabled: true,
       killSwitchActive: false,
