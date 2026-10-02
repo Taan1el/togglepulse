@@ -115,7 +115,8 @@ export class FlagController {
   getAudits = (req: Request, res: Response): void => {
     try {
       const flagKey = req.query.flagKey as string | undefined;
-      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 50;
+      const parsed = parseInt(String(req.query.limit ?? ''), 10);
+      const limit = Number.isFinite(parsed) && parsed > 0 ? Math.min(parsed, 500) : 50;
       const audits = this.flagService.getRecentAudits(flagKey, limit);
       res.json({ success: true, data: audits });
     } catch (err) {

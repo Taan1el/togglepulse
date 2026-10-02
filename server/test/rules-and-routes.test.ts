@@ -85,6 +85,14 @@ describe('Flag lifecycle routes', () => {
     expect(other.body.data).toEqual([]);
   });
 
+  it('falls back to 50 audit rows for a bad limit and caps large limits', async () => {
+    await request(ctx.app).post('/api/flags/beta_flag_/evaluate').send({ context: { userId: 'a' } }).expect(200);
+    for (const limit of ['abc', '-3', '0', '100000']) {
+      const res = await request(ctx.app).get(`/api/audits?limit=${limit}`).expect(200);
+      expect(res.body.data).toHaveLength(1);
+    }
+  });
+
   it('deletes a flag together with its audits and reports when nothing was deleted', async () => {
     await request(ctx.app).post('/api/flags/beta_flag_/evaluate').send({ context: { userId: 'a' } }).expect(200);
     const first = await request(ctx.app).delete('/api/flags/beta_flag_').expect(200);
