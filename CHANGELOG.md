@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+- Automated accessibility tests for the flag matrix, the detail drawer and the new flag dialog, using axe with the WCAG 2 A and AA rules. A test also checks that each kill switch is named by its flag and environment.
+
 ### Changed
 - New visual identity: a dark switchboard. A search bar sits at the top, flags are rows and environments are columns, and every cell has its own kill switch toggle with the rollout percentage and state beside it.
 - Flags with an engaged kill switch are pinned in their own group above the rest.

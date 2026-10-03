@@ -143,6 +143,7 @@ npm test
 
 - Server (Vitest and supertest, in-memory SQLite): routes, validation, error contract, rule operators, evaluation precedence, kill switch behavior, bucketing against `node:crypto`, and the rollout superset property.
 - Client (Vitest and Testing Library): the console flows (matrix, environment cells, filter, rollout, kill switch, tester, create and delete) against a mocked `fetch`, the demo data layer, the demo bar, and the count helper.
+- Accessibility: the client suite also runs automated axe checks (WCAG 2 A and AA rules) on the flag matrix, the detail drawer and the new flag dialog. jsdom cannot compute colors, so color contrast is checked outside the test suite.
 
 No test waits on real timers.
 
