@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- A test that checks every sideways scrolling table wrapper can be focused with the keyboard and has a name, so keyboard users can always scroll tables.
 - Automated accessibility tests for the flag matrix, the detail drawer and the new flag dialog, using axe with the WCAG 2 A and AA rules. A test also checks that each kill switch is named by its flag and environment.
 
 ### Changed
@@ -18,6 +19,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [1.0.0] - 2026-10-02
 
 ### Added
+- A test that checks every sideways scrolling table wrapper can be focused with the keyboard and has a name, so keyboard users can always scroll tables.
 - Express API for feature flags with production, staging and development environments, stored in Node's native SQLite (`node:sqlite`, WAL mode).
 - Deterministic percentage rollouts: a user's bucket (0 to 99) comes from a SHA-256 hash of the user ID and flag key, so the same user always lands in the same bucket and raising the percentage only adds users.
 - Targeting rules (`EQUALS`, `NOT_EQUALS`, `IN`, `NOT_IN`, `CONTAINS`, `STARTS_WITH`, `SEMVER_GTE`) that are checked before the rollout, and a per-environment kill switch that overrides everything else.
