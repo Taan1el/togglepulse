@@ -1,0 +1,19 @@
+.local-source{max-width:var(--page-max);margin:auto;padding:1rem var(--page-pad);display:flex;align-items:center;gap:1.5rem;flex-wrap:wrap;border-bottom:1px solid var(--rule)}
+.local-source label{display:block;font-size:14px;color:var(--ink-2)}
+.local-source select,.local-source button{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--rule-strong);border-radius:var(--radius);min-height:44px;padding:.5rem .8rem}
+.local-source p{color:var(--ink-2);font-size:14px}
+.local-flags .local-actions{display:flex;gap:.75rem;align-items:flex-end;flex-wrap:wrap;margin:1rem 0}
+.local-flags .local-status{color:var(--ink-2);font-size:14px;min-height:44px;padding-top:.5rem}
+.local-flags .local-create{max-width:600px;border-block:1px solid var(--rule);padding:1rem 0;margin-bottom:1.5rem;display:grid;gap:1rem}
+.local-flags .field input:not([type=range]),.local-flags .field textarea,.local-flags .field select{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--rule-strong);border-radius:var(--radius);min-height:44px;width:100%;padding:.6rem .75rem;max-width:100%}
+.local-flags .field textarea{resize:vertical}
+.local-flags .field input[type=file]{white-space:normal}
+.local-flags .local-rule{padding:1rem;border:1px solid var(--rule-strong);border-radius:var(--radius);min-width:0;margin:1rem 0;display:grid;gap:.8rem}
+.local-flags .local-rule legend{font-family:var(--font-mono);padding:0 .4rem}
+.local-flags .local-result{background:var(--paper);border:1px solid var(--rule-strong);border-radius:var(--radius);padding:1rem;max-width:100%;overflow:auto;margin-top:1rem;font-size:13px}
+.local-flags .local-explanation{margin:2rem 0 1rem;color:var(--ink-2);max-width:100ch;font-size:14px}
+.local-flags .btn:disabled{opacity:1;color:var(--ink-2);background:var(--surface);border-color:var(--rule-strong)}
+.local-flags .switch:disabled{cursor:wait}
+.local-flags .table-wrapper{position:relative}
+.local-flags .flag-key,.local-flags .flag-name{overflow-wrap:anywhere;white-space:normal}
+.local-flags .field textarea.mono{font-family:var(--font-mono);font-size:13px}

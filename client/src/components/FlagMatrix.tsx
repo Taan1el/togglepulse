@@ -13,6 +13,8 @@ interface FlagMatrixProps {
   onSelectCell: (key: string, env: string) => void;
   onToggleKillSwitch: (key: string, env: string, active: boolean) => void;
   loading: boolean;
+  disabled?: boolean;
+  local?: boolean;
 }
 
 const isKilledAnywhere = (flag: FeatureFlag) => ENV_NAMES.some((env) => getEnvConfig(flag, env).killSwitchActive);
@@ -25,6 +27,8 @@ export const FlagMatrix: React.FC<FlagMatrixProps> = ({
   onSelectCell,
   onToggleKillSwitch,
   loading,
+  disabled = false,
+  local = false,
 }) => {
   const term = query.trim().toLowerCase();
   const filtered = flags.filter(
@@ -54,9 +58,9 @@ export const FlagMatrix: React.FC<FlagMatrixProps> = ({
             <span className="flag-name">{flag.name}</span>
             <span className="flag-key">{flag.key}</span>
           </button>
-          <span className="flag-meta mono">
+          {!local && <span className="flag-meta mono">
             {formatCount(flag.evaluationCount, 'evaluation')}
-          </span>
+          </span>}
         </th>
         {ENV_NAMES.map((env) => {
           const cfg = getEnvConfig(flag, env);
@@ -72,6 +76,7 @@ export const FlagMatrix: React.FC<FlagMatrixProps> = ({
                   aria-checked={cfg.killSwitchActive}
                   aria-label={`Kill switch for ${flag.key} in ${env}`}
                   className="switch"
+                  disabled={disabled}
                   onClick={() => onToggleKillSwitch(flag.key, env, !cfg.killSwitchActive)}
                 >
                   <span className="switch-track">

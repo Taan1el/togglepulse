@@ -12,6 +12,7 @@ interface FlagEditorProps {
   onToggleKillSwitch: (active: boolean) => void;
   onDeleteFlag: () => void;
   saving: boolean;
+  local?: boolean;
 }
 
 export const FlagEditor: React.FC<FlagEditorProps> = ({
@@ -22,6 +23,7 @@ export const FlagEditor: React.FC<FlagEditorProps> = ({
   onToggleKillSwitch,
   onDeleteFlag,
   saving,
+  local = false,
 }) => {
   const [sliderVal, setSliderVal] = useState(() => flag?.environments[environment]?.rolloutPercentage || 0);
 
@@ -92,7 +94,7 @@ export const FlagEditor: React.FC<FlagEditorProps> = ({
             {saving ? 'Updating' : 'Apply rollout'}
           </button>
 
-          <button type="button" className="btn btn-tertiary" onClick={onDeleteFlag}>
+          <button type="button" className="btn btn-tertiary" onClick={onDeleteFlag} disabled={saving}>
             <Trash2 size={16} strokeWidth={1.75} aria-hidden="true" />
             Delete flag
           </button>
@@ -113,10 +115,10 @@ export const FlagEditor: React.FC<FlagEditorProps> = ({
               <dt>Tags</dt>
               <dd className="plain">{flag.tags.length ? flag.tags.join(', ') : 'None'}</dd>
             </div>
-            <div>
+            {!local && <div>
               <dt>Evaluations</dt>
               <dd>{flag.evaluationCount.toLocaleString('en-US')}</dd>
-            </div>
+            </div>}
           </dl>
 
           <h3 className="panel-heading">{`Targeting rules (${env.rules.length})`}</h3>
