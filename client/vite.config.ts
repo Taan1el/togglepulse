@@ -1,6 +1,7 @@
 /// <reference types="vitest" />
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
+import { localFirstBuild } from './localBuild';
 
 // `npm run build:pages` builds with --mode pages: assets are served from
 // /togglepulse/ on GitHub Pages and the client swaps the Express API for the
@@ -12,7 +13,8 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
 
   return {
-    plugins: [react()],
+    plugins: [react(), ...(isPagesBuild ? [localFirstBuild({ base: '/togglepulse/', name: 'TogglePulse', id: 'togglepulse', description: 'Edit portable feature flags in your browser', themeColor: '#111317' })] : [])],
+    build: { assetsInlineLimit: 0 },
     base: isPagesBuild ? '/togglepulse/' : '/',
     define: {
       'import.meta.env.VITE_DEMO_MODE': JSON.stringify(isPagesBuild ? 'true' : 'false'),
