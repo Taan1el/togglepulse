@@ -1,5 +1,29 @@
 # TogglePulse
 
+## Use it with your own data
+
+On the hosted app, select **Your workspace**. Create a flag or import a versioned `flags.json`, then edit environment state, percentage rollout, kill switches, and ordered targeting rules. Changes save in IndexedDB. Sample reset is separate. Stale tabs must reload before saving so they cannot silently overwrite newer changes. Export a backup before clearing browser data; storage is unencrypted and may be evicted.
+
+The Pages app makes no requests to other hosts and needs no account or API key. Files are never uploaded. A same-origin Content Security Policy is injected only in the Pages build. A scoped manifest and versioned cache include the app, worker, and self-hosted fonts; after a successful visit it works offline and can be installed through your browser's app menu.
+
+Use the single **Export** control with each of its three formats:
+
+1. **flags.json**: `{ "version": 1, "bucketing": "sha256-32be-mod100", "flags": [...] }`. Each flag includes key, name, description, tags, and complete `production`, `staging`, and `development` configs. Each config includes `enabled`, `killSwitchActive`, `rolloutPercentage`, and ordered `rules`. Import this file to keep editing in another browser. Unknown fields are stripped; invalid files preserve saved flags. A [synthetic example](fixtures/flags.json) is included. Limit: 4 MiB, 200 flags, 50 rules per environment, 20 values per rule. Files of at least 256 KiB parse in a worker.
+2. **evaluate.js**: a standalone ES module with no package dependencies. It uses built-in WebCrypto and UTF-8 encoding, so evaluation is asynchronous and requires a secure browser context (HTTPS or localhost), or a modern runtime with WebCrypto. The editor's **Try it** panel imports this exact module; no generated code is evaluated in the page.
+3. **test-vectors.json**: the exact flags snapshot, sample contexts, rule probes, and expected results. It travels with the evaluator so consumers can check behavior before using their own contexts. Export again after changing flags; vectors describe that snapshot, not future edits.
+
+```js
+import { evaluate } from './evaluate.js';
+// Load your validated flags.json through your application's normal configuration path.
+const result = await evaluate(flags, 'checkout_beta', 'production', {
+  userId: 'visitor-42', attributes: { role: 'beta_tester', country: 'EE' }
+});
+```
+
+The evaluator expects the validated schema above. Buckets are the first unsigned big-endian 32 bits of SHA-256(`userId + ':' + flagKey`), modulo 100. Environment is not in the hash, so the same user and flag have the same bucket in every environment. Compare that integer against the rollout percentage. Kill switch wins, then disabled state, then the first matching rule, then rollout. Unknown flags or environments return false. Rules compare string values case-insensitively; missing attributes never match, even for negative operators. `SEMVER_GTE` retains the existing numeric-component comparison and strips suffixes; it does not implement full SemVer prerelease precedence. Rule drafts take effect only after **Save rules**. Selecting another environment or changing saved configuration resets the draft.
+
+The workspace is a static-file editor, not a live service: it does not push changes to applications or provide runtime telemetry. Contexts and test results stay in memory. Flag files and rules are readable by anyone who receives them; keep secrets and authorization checks elsewhere. The existing sample console and optional Express service remain available.
+
 TogglePulse is a feature flag service. Teams use it to turn features on for a percentage of users, target specific groups with rules, and switch a feature off in one environment with a kill switch, without redeploying. It has an Express API with SQLite storage and a React console for managing flags and testing what a user would get.
 
 [![CI](https://github.com/Taan1el/togglepulse/actions/workflows/ci.yml/badge.svg)](https://github.com/Taan1el/togglepulse/actions/workflows/ci.yml)
