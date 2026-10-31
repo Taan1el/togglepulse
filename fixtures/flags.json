@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "bucketing": "sha256-32be-mod100",
+  "flags": [{
+    "key": "checkout_beta",
+    "name": "Checkout beta",
+    "description": "Synthetic checkout configuration",
+    "tags": ["checkout"],
+    "environments": {
+      "production": {"enabled": true, "killSwitchActive": false, "rolloutPercentage": 25, "rules": [{"id": "beta-role", "attribute": "role", "operator": "EQUALS", "values": ["beta_tester"], "serveValue": true}]},
+      "staging": {"enabled": true, "killSwitchActive": false, "rolloutPercentage": 100, "rules": []},
+      "development": {"enabled": true, "killSwitchActive": false, "rolloutPercentage": 100, "rules": []}
+    }
+  }]
+}
