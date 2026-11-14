@@ -33,6 +33,13 @@ describe('local switchboard', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save rules' }));
     expect(await screen.findByText('Rule 1 needs at least one value. Enter one value per line.')).toBeInTheDocument(); expect(store.saveWorkspace).not.toHaveBeenCalled();
   });
+  it('creates a new flag switched off in every environment', async () => {
+    render(<LocalFlags />); await waitFor(() => expect(screen.getByRole('button', { name: 'New flag' })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: 'New flag' })); fireEvent.change(screen.getByLabelText('Flag key'), { target: { value: 'fresh' } }); fireEvent.change(screen.getByLabelText('Display name'), { target: { value: 'Fresh' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Create flag' })); await waitFor(() => expect(store.saveWorkspace).toHaveBeenCalled());
+    const created = store.saveWorkspace.mock.calls[0][0].flags.find((item: { key: string }) => item.key === 'fresh');
+    for (const environment of ['production', 'staging', 'development']) expect(created.environments[environment]).toMatchObject({ enabled: false, rolloutPercentage: 0, killSwitchActive: false });
+  });
   it('says whole percent beside the rollout control', async () => {
     render(<LocalFlags />); expect(await screen.findByText('Whole percent, 0 to 100.')).toBeInTheDocument();
   });

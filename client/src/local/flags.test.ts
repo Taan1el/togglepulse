@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { createHash } from 'node:crypto';
 import { defaultEnvironments, evaluateFlag } from '../../../shared/evaluate';
-import { emptyFlags, matrixFlags, parseContext, parseFlags, parseRules, parseSaved, rulesFromDraft, splitValues, toDraft, type FlagsFile } from './flags';
+import { emptyFlags, matrixFlags, parseContext, parseFlags, parseRules, parseSaved, newFlagEnvironments, rulesFromDraft, splitValues, toDraft, type FlagsFile } from './flags';
 import { evaluate, evaluatorSource, testVectors } from './exports';
 const fixture = (): FlagsFile => ({ ...emptyFlags(), flags: [{ key: 'checkout', name: 'Checkout', description: '', tags: ['synthetic'], environments: defaultEnvironments() }] });
 describe('versioned flags files', () => {
@@ -41,6 +41,14 @@ describe('versioned flags files', () => {
   });
   it.each(['{', '{}', '{"userId":5}', '{"userId":"x","attributes":{"__proto__":"yes"}}', '{"userId":"x","attributes":{"role":[]}}'])('rejects malformed contexts %s', input => expect(() => parseContext(input)).toThrow());
   it('copies only owned scalar context attributes', () => { expect(parseContext('{"userId":"x","attributes":{"country":"EE","paid":true,"age":42}}')).toEqual({ userId: 'x', attributes: { country: 'EE', paid: true, age: 42 } }); });
+});
+describe('new flag defaults', () => {
+  it('starts disabled at 0 percent in every environment and still passes validation', async () => {
+    const environments = newFlagEnvironments(); expect(Object.keys(environments)).toEqual(['production', 'staging', 'development']);
+    for (const config of Object.values(environments)) expect(config).toEqual({ enabled: false, killSwitchActive: false, rolloutPercentage: 0, rules: [] });
+    const file = { ...emptyFlags(), flags: [{ key: 'fresh', name: 'Fresh', description: '', tags: [], environments }] }; expect(parseFlags(JSON.stringify(file))).toEqual(file);
+    for (const env of Object.keys(environments)) expect((await evaluate(file, 'fresh', env, { userId: 'visitor-1' })).enabled).toBe(false);
+  });
 });
 describe('rule value editing', () => {
   const draft = (text: string, operator = 'IN') => ({ ...toDraft({ id: 'one', attribute: 'country', operator: operator as 'IN', values: ['x'], serveValue: true }), text });

@@ -3,6 +3,8 @@ import { ENVIRONMENTS, RULE_OPERATORS, isSemver } from '../../../shared/evaluate
 export const MAX_FLAGS_FILE = 4 * 1024 * 1024;
 export interface StaticFlag { key: string; name: string; description: string; tags: string[]; environments: Record<string, EnvironmentConfig> }
 export interface FlagsFile { version: 1; bucketing: 'sha256-32be-mod100'; flags: StaticFlag[] }
+/** New flags start switched off at 0 percent everywhere, so creating one never serves anyone. */
+export const newFlagEnvironments = (): Record<string, EnvironmentConfig> => Object.fromEntries(ENVIRONMENTS.map(env => [env, { enabled: false, killSwitchActive: false, rolloutPercentage: 0, rules: [] }]));
 export const emptyFlags = (): FlagsFile => ({ version: 1, bucketing: 'sha256-32be-mod100', flags: [] });
 function fail(where: string, expected: string): never { throw new Error(`${where}: expected ${expected}.`); }
 function object(value: unknown): value is Record<string, unknown> { return !!value && typeof value === 'object' && !Array.isArray(value); }
