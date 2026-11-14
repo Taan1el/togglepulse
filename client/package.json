@@ -1,6 +1,6 @@
 {
   "name": "@togglepulse/client",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "TogglePulse React console: flags table, rollout controls and evaluation tester",
   "private": true,
   "type": "module",

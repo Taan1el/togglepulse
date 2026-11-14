@@ -4,6 +4,21 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.1.1] - 2026-11-14
+
+### Fixed
+- Version rules (`SEMVER_GTE`) follow SemVer 2.0.0 precedence in the editor, the exported evaluator and the server. Before, `2.5.0-beta2` compared as 2.5.2 and `1.0.0-rc10` as 1.0.10, and prereleases ranked above releases. Invalid versions never match.
+- Rule values with blank lines, a trailing newline or Windows line endings no longer make Save fail with an index error. Values are trimmed and de-duplicated, and problems are reported by rule number.
+- Fractional rollout values such as 0.1 are rejected on import with a message naming the flag and environment, because buckets are whole percents. A workspace saved with a fractional rollout still opens, rounded up to the percent it already served.
+- Unsaved rule drafts survive kill switch, rollout and enabled changes, and the editor asks before switching flag or environment discards them.
+- The name, description and tags of a local flag can now be edited.
+- New local flags start disabled at 0 percent in every environment instead of 100 percent in staging and development.
+- Importing flags.json asks before replacing the saved workspace and says how many flags and rules are replaced.
+- The exported test vectors include rollout boundary buckets, non-matching cases for every operator and SemVer prerelease cases, and the exported files say the evaluator needs `crypto.subtle`.
+- A new version of the offline app reaches open tabs: the page is fetched network first, the cache is filled with fresh copies, and a "Reload" notice appears when an update is ready.
+- Downloads keep the file URL alive for ten seconds instead of releasing it immediately.
+- The browser storage message names TogglePulse.
+
 ## [Unreleased]
 
 ### Added

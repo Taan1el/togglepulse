@@ -1,6 +1,6 @@
 {
   "name": "@togglepulse/server",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "TogglePulse Express API: flag storage, evaluation and audit trail on SQLite",
   "private": true,
   "type": "module",
