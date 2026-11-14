@@ -1,4 +1,5 @@
 import type { EnvironmentConfig, EvaluationContext, FeatureFlag, TargetingRule } from '../../../shared/types';
+import { formatCount } from '../utils/pluralize';
 import { ENVIRONMENTS, RULE_OPERATORS, isSemver } from '../../../shared/evaluate';
 export const MAX_FLAGS_FILE = 4 * 1024 * 1024;
 export interface StaticFlag { key: string; name: string; description: string; tags: string[]; environments: Record<string, EnvironmentConfig> }
@@ -101,6 +102,11 @@ export function parseSaved(data: unknown): { file: FlagsFile; adjusted: string[]
     }
   }
   return { file: parseFlags(JSON.stringify(copy)), adjusted };
+}
+/** "3 flags and 7 targeting rules", used to say what an import replaces. */
+export function describeFlags(file: FlagsFile): string {
+  const rules = file.flags.reduce((total, flag) => total + ENVIRONMENTS.reduce((sum, env) => sum + flag.environments[env].rules.length, 0), 0);
+  return `${formatCount(file.flags.length, 'flag')} and ${formatCount(rules, 'targeting rule')}`;
 }
 export function parseContext(input: string): EvaluationContext {
   if (input.length > 16000) fail('Context', 'at most 16000 characters');

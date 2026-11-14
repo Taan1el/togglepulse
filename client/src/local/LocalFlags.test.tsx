@@ -82,6 +82,30 @@ describe('local switchboard', () => {
     expect(store.saveWorkspace.mock.calls[0][0].flags.find((item: { key: string }) => item.key === 'search').environments.production.killSwitchActive).toBe(true);
     expect(screen.getByLabelText('Attribute for rule 1')).toHaveValue('plan'); expect(screen.queryByRole('dialog')).toBeNull();
   });
+  const incoming = () => { const environments = defaultEnvironments(); environments.production.rules = [{ id: 'r1', attribute: 'country', operator: 'EQUALS', values: ['EE'], serveValue: true }, { id: 'r2', attribute: 'plan', operator: 'EQUALS', values: ['pro'], serveValue: true }]; return { version: 1 as const, bucketing: 'sha256-32be-mod100' as const, flags: ['alpha', 'beta'].map(key => ({ key, name: key, description: '', tags: [], environments })) }; };
+  async function startImport() {
+    const opener = screen.getByRole('button', { name: 'Import flags' }); await waitFor(() => expect(opener).toBeEnabled()); fireEvent.click(opener);
+    fireEvent.change(screen.getByLabelText('Flags JSON file'), { target: { files: [new File(['{}'], 'incoming.json')] } }); fireEvent.click(screen.getByRole('button', { name: 'Import and save' })); return opener;
+  }
+  it('asks before an import replaces saved flags, saying what is replaced, and saves nothing on cancel', async () => {
+    importer.importFlags.mockResolvedValueOnce(incoming()); const { container } = render(<LocalFlags />); const opener = await startImport();
+    const dialog = await screen.findByRole('dialog', { name: 'Replace your workspace?' });
+    expect(dialog).toHaveTextContent('Importing incoming.json replaces your 1 flag and 0 targeting rules with 2 flags and 4 targeting rules.'); expect(dialog).toHaveTextContent('Flags that are not in the file are removed.');
+    expect(screen.getByRole('button', { name: 'Keep current flags' })).toHaveFocus(); expect(store.saveWorkspace).not.toHaveBeenCalled(); expect((await axe(container)).violations).toEqual([]);
+    fireEvent.keyDown(document, { key: 'Tab' }); expect(screen.getByRole('button', { name: 'Replace workspace' })).toHaveFocus(); fireEvent.keyDown(document, { key: 'Tab', shiftKey: true }); expect(screen.getByRole('button', { name: 'Keep current flags' })).toHaveFocus();
+    fireEvent.click(screen.getByRole('button', { name: 'Keep current flags' })); expect(screen.queryByRole('dialog')).toBeNull(); expect(opener).toHaveFocus(); expect(store.saveWorkspace).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: /Open checkout in production/ })).toBeInTheDocument();
+  });
+  it('replaces the saved flags only after the import is confirmed', async () => {
+    importer.importFlags.mockResolvedValueOnce(incoming()); render(<LocalFlags />); await startImport();
+    fireEvent.click(await screen.findByRole('button', { name: 'Replace workspace' })); await waitFor(() => expect(store.saveWorkspace).toHaveBeenCalledTimes(1));
+    expect(store.saveWorkspace.mock.calls[0][0].flags.map((item: { key: string }) => item.key)).toEqual(['alpha', 'beta']);
+    await screen.findByRole('button', { name: /Open alpha in production/ }); expect(screen.queryByRole('dialog')).toBeNull(); expect(screen.getByRole('button', { name: 'Import flags' })).toHaveFocus();
+  });
+  it('imports straight into an empty workspace without a question', async () => {
+    store.loadWorkspaceSnapshot.mockResolvedValue({ data: null, revision: 0 }); importer.importFlags.mockResolvedValueOnce(incoming()); render(<LocalFlags />); await startImport();
+    await waitFor(() => expect(store.saveWorkspace).toHaveBeenCalledTimes(1)); expect(screen.queryByRole('dialog')).toBeNull();
+  });
   it('says whole percent beside the rollout control', async () => {
     render(<LocalFlags />); expect(await screen.findByText('Whole percent, 0 to 100.')).toBeInTheDocument();
   });
