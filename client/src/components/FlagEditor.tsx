@@ -83,6 +83,7 @@ export const FlagEditor: React.FC<FlagEditorProps> = ({
               onChange={(e) => setSliderVal(parseInt(e.target.value, 10))}
               disabled={killed}
             />
+            <span className="field-help">Whole percent, 0 to 100.</span>
             <span className="field-help">Currently {env.rolloutPercentage}% of users get this flag on.</span>
           </div>
           <button

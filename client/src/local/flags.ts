@@ -60,12 +60,29 @@ export function parseFlags(input: string): FlagsFile {
     for (const env of ENVIRONMENTS) {
       const config = flag.environments[env]; const place = `${path}.environments.${env}`;
       if (!object(config)) fail(place, 'an environment config');
-      if (typeof config.rolloutPercentage !== 'number' || !Number.isFinite(config.rolloutPercentage) || config.rolloutPercentage < 0 || config.rolloutPercentage > 100) fail(`${place}.rolloutPercentage`, 'a number from 0 to 100');
+      if (typeof config.rolloutPercentage !== 'number' || !Number.isFinite(config.rolloutPercentage) || config.rolloutPercentage < 0 || config.rolloutPercentage > 100) fail(`${place}.rolloutPercentage`, 'a whole number from 0 to 100');
+      if (!Number.isInteger(config.rolloutPercentage)) throw new Error(`Flag "${key}" in ${env}: rolloutPercentage ${config.rolloutPercentage} is not a whole percent. Buckets are whole percents, so use a whole number from 0 to 100.`);
       environments[env] = { enabled: bool(config.enabled, `${place}.enabled`), killSwitchActive: bool(config.killSwitchActive, `${place}.killSwitchActive`), rolloutPercentage: config.rolloutPercentage, rules: parseRules(config.rules, `${place}.rules`) };
     }
     return { key, name, description, tags, environments };
   });
   return { version: 1, bucketing: 'sha256-32be-mod100', flags };
+}
+/**
+ * Reads a workspace saved by an earlier version. Fractional rollouts used to be
+ * accepted; a user is on when bucket < percentage, so 0.1 served exactly the
+ * users that 1 serves. Round those up to the whole percent they already served
+ * and report each change instead of refusing to open the workspace.
+ */
+export function parseSaved(data: unknown): { file: FlagsFile; adjusted: string[] } {
+  const adjusted: string[] = []; const copy = structuredClone(data) as { flags?: unknown };
+  if (object(copy) && Array.isArray(copy.flags)) for (const flag of copy.flags) if (object(flag) && object(flag.environments)) for (const env of ENVIRONMENTS) {
+    const config = flag.environments[env];
+    if (object(config) && typeof config.rolloutPercentage === 'number' && config.rolloutPercentage > 0 && config.rolloutPercentage < 100 && !Number.isInteger(config.rolloutPercentage)) {
+      const whole = Math.ceil(config.rolloutPercentage); adjusted.push(`${String(flag.key)} in ${env} was ${config.rolloutPercentage} percent and now reads ${whole} percent, which serves the same users.`); config.rolloutPercentage = whole;
+    }
+  }
+  return { file: parseFlags(JSON.stringify(copy)), adjusted };
 }
 export function parseContext(input: string): EvaluationContext {
   if (input.length > 16000) fail('Context', 'at most 16000 characters');

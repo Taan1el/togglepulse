@@ -33,6 +33,15 @@ describe('local switchboard', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save rules' }));
     expect(await screen.findByText('Rule 1 needs at least one value. Enter one value per line.')).toBeInTheDocument(); expect(store.saveWorkspace).not.toHaveBeenCalled();
   });
+  it('says whole percent beside the rollout control', async () => {
+    render(<LocalFlags />); expect(await screen.findByText('Whole percent, 0 to 100.')).toBeInTheDocument();
+  });
+  it('opens a workspace saved with a fractional rollout and says what changed', async () => {
+    const environments = defaultEnvironments(); environments.production.rolloutPercentage = 0.1;
+    store.loadWorkspaceSnapshot.mockResolvedValue({ data: { version: 1, bucketing: 'sha256-32be-mod100', flags: [{ key: 'checkout', name: 'Checkout', description: '', tags: [], environments }] }, revision: 3 });
+    render(<LocalFlags />); await waitFor(() => expect(screen.getByRole('button', { name: 'Import flags' })).toBeEnabled());
+    expect(screen.getByText(/checkout in production was 0\.1 percent and now reads 1 percent/)).toBeInTheDocument(); expect(store.saveWorkspace).not.toHaveBeenCalled();
+  });
   it('retains saved configuration when a stale writer is rejected', async () => {
     store.saveWorkspace.mockRejectedValueOnce(new Error('Workspace changed in another tab.'));
     render(<LocalFlags />); const control = await screen.findByRole('switch', { name: 'Enabled in production' }); await waitFor(() => expect(control).toBeEnabled()); fireEvent.click(control);

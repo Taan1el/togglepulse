@@ -4,7 +4,7 @@ import { defaultEnvironments, RULE_OPERATORS } from '../../../shared/evaluate';
 import type { EnvironmentConfig, TargetingRule } from '../../../shared/types';
 import { FlagMatrix } from '../components/FlagMatrix';
 import { FlagEditor } from '../components/FlagEditor';
-import { emptyFlags, matrixFlags, parseContext, parseFlags, rulesFromDraft, toDraft, type FlagsFile, type RuleDraft } from './flags';
+import { emptyFlags, matrixFlags, parseContext, parseFlags, parseSaved, rulesFromDraft, toDraft, type FlagsFile, type RuleDraft } from './flags';
 import { evaluate, evaluatorSource, testVectors } from './exports';
 import { downloadFile } from './files';
 import { importFlags } from './importFile';
@@ -18,7 +18,9 @@ export function LocalFlags() {
   const [rules, setRules] = useState<RuleDraft[]>([]); const [ruleError, setRuleError] = useState(''); const [format, setFormat] = useState('flags'); const [importing, setImporting] = useState(false); const [importError, setImportError] = useState(''); const [file, setFile] = useState<File | null>(null); const modal = useRef<HTMLDivElement>(null); const opener = useRef<HTMLElement | null>(null);
   const matrix = useMemo(() => matrixFlags(data), [data]); const flag = matrix.find(item => item.key === selected) ?? null; const config = flag?.environments[environment];
   function show(next: FlagsFile) { setData(next); setSelected(previous => next.flags.some(item => item.key === previous) ? previous : next.flags[0]?.key ?? null); }
-  useEffect(() => { let active = true; void loadWorkspaceSnapshot<unknown>().then(saved => { if (active) { show(saved.data === null ? emptyFlags() : parseFlags(JSON.stringify(saved.data))); revision.current = saved.revision; setReady(true); } }).catch(caught => { if (active) setError((caught as Error).message); }); return () => { active = false; }; }, []);
+  function restore(raw: unknown): string[] { if (raw === null) { show(emptyFlags()); return []; } const { file, adjusted } = parseSaved(raw); show(file); return adjusted; }
+  const adjustedNotice = (adjusted: string[]) => `${adjusted.join(' ')} Rollouts are whole percents. Save any change to store this.`;
+  useEffect(() => { let active = true; void loadWorkspaceSnapshot<unknown>().then(saved => { if (active) { const adjusted = restore(saved.data); if (adjusted.length) setNotice(adjustedNotice(adjusted)); revision.current = saved.revision; setReady(true); } }).catch(caught => { if (active) setError((caught as Error).message); }); return () => { active = false; }; }, []);
   useEffect(() => { setRules((config?.rules ?? []).map(toDraft)); setRuleError(''); setResult(null); setTestError(''); testRun.current++; }, [config, selected, environment]);
   async function commit(next: FlagsFile) {
     if (pending.current) throw new Error('Wait for the current operation to finish.');
@@ -28,7 +30,7 @@ export function LocalFlags() {
   }
   const attempt = (operation: () => Promise<void>) => { void operation().catch(caught => setError((caught as Error).message)); };
   async function update(change: Partial<EnvironmentConfig>, key = selected, env = environment) { if (!key) return; await commit({ ...data, flags: data.flags.map(item => item.key === key ? { ...item, environments: { ...item.environments, [env]: { ...item.environments[env], ...change } } } : item) }); }
-  async function reload() { setBusy(true); try { const saved = await loadWorkspaceSnapshot<unknown>(); show(saved.data === null ? emptyFlags() : parseFlags(JSON.stringify(saved.data))); revision.current = saved.revision; setReady(true); setError(''); setNotice('Saved flags loaded.'); } catch (caught) { setError((caught as Error).message); } finally { setBusy(false); } }
+  async function reload() { setBusy(true); try { const saved = await loadWorkspaceSnapshot<unknown>(); const adjusted = restore(saved.data); revision.current = saved.revision; setReady(true); setError(''); setNotice(adjusted.length ? adjustedNotice(adjusted) : 'Saved flags loaded.'); } catch (caught) { setError((caught as Error).message); } finally { setBusy(false); } }
   useEffect(() => {
     if (!importing) return;
     modal.current?.querySelector<HTMLInputElement>('input')?.focus();

@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { createHash } from 'node:crypto';
 import { defaultEnvironments, evaluateFlag } from '../../../shared/evaluate';
-import { emptyFlags, matrixFlags, parseContext, parseFlags, parseRules, rulesFromDraft, splitValues, toDraft, type FlagsFile } from './flags';
+import { emptyFlags, matrixFlags, parseContext, parseFlags, parseRules, parseSaved, rulesFromDraft, splitValues, toDraft, type FlagsFile } from './flags';
 import { evaluate, evaluatorSource, testVectors } from './exports';
 const fixture = (): FlagsFile => ({ ...emptyFlags(), flags: [{ key: 'checkout', name: 'Checkout', description: '', tags: ['synthetic'], environments: defaultEnvironments() }] });
 describe('versioned flags files', () => {
@@ -15,6 +15,20 @@ describe('versioned flags files', () => {
     JSON.stringify({ ...fixture(), flags: [{ ...fixture().flags[0], name: 5 }] }),
   ])('rejects malformed or ambiguous file %s', input => expect(() => parseFlags(input)).toThrow());
   it.each([NaN, Infinity, -1, 101, '20', null])('rejects invalid rollout %s', value => { const data = fixture(); (data.flags[0].environments.production as unknown as Record<string, unknown>).rolloutPercentage = value; expect(() => parseFlags(JSON.stringify(data))).toThrow('rolloutPercentage'); });
+  it.each([0.1, 37.5, 99.9, 1e-7])('rejects the fractional rollout %s and names the flag and environment', value => {
+    const data = fixture(); data.flags[0].environments.staging.rolloutPercentage = value;
+    expect(() => parseFlags(JSON.stringify(data))).toThrow(`Flag "checkout" in staging: rolloutPercentage ${value} is not a whole percent`);
+  });
+  it.each([0, 1, 50, 99, 100])('accepts the whole percent %s', value => { const data = fixture(); data.flags[0].environments.production.rolloutPercentage = value; expect(parseFlags(JSON.stringify(data)).flags[0].environments.production.rolloutPercentage).toBe(value); });
+  it('opens a workspace saved with a fractional rollout by rounding up to the percent it already served', async () => {
+    const saved = fixture(); saved.flags[0].environments.production.rolloutPercentage = 0.1; saved.flags[0].environments.staging.rolloutPercentage = 37.5; saved.flags[0].environments.development.rolloutPercentage = 99.2;
+    const { file, adjusted } = parseSaved(saved);
+    expect(file.flags[0].environments.production.rolloutPercentage).toBe(1); expect(file.flags[0].environments.staging.rolloutPercentage).toBe(38); expect(file.flags[0].environments.development.rolloutPercentage).toBe(100);
+    expect(adjusted).toHaveLength(3); expect(adjusted[0]).toContain('checkout in production was 0.1 percent and now reads 1 percent');
+    for (let index = 0; index < 200; index++) { const userId = `saved-${index}`; expect((await evaluate(file, 'checkout', 'staging', { userId })).enabled).toBe((await evaluate(saved, 'checkout', 'staging', { userId })).enabled); }
+    expect(saved.flags[0].environments.production.rolloutPercentage).toBe(0.1);
+    expect(parseSaved(fixture()).adjusted).toEqual([]);
+  });
   it('validates specific rule paths, cardinality and unique IDs', () => {
     const rule = { id: 'one', attribute: 'country', operator: 'EQUALS', values: ['EE'], serveValue: true };
     expect(parseRules([rule])[0]).toEqual(rule);
