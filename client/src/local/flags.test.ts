@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { createHash } from 'node:crypto';
 import { defaultEnvironments, evaluateFlag } from '../../../shared/evaluate';
-import { emptyFlags, matrixFlags, parseContext, parseFlags, parseRules, type FlagsFile } from './flags';
+import { emptyFlags, matrixFlags, parseContext, parseFlags, parseRules, rulesFromDraft, splitValues, toDraft, type FlagsFile } from './flags';
 import { evaluate, evaluatorSource, testVectors } from './exports';
 const fixture = (): FlagsFile => ({ ...emptyFlags(), flags: [{ key: 'checkout', name: 'Checkout', description: '', tags: ['synthetic'], environments: defaultEnvironments() }] });
 describe('versioned flags files', () => {
@@ -27,6 +27,25 @@ describe('versioned flags files', () => {
   });
   it.each(['{', '{}', '{"userId":5}', '{"userId":"x","attributes":{"__proto__":"yes"}}', '{"userId":"x","attributes":{"role":[]}}'])('rejects malformed contexts %s', input => expect(() => parseContext(input)).toThrow());
   it('copies only owned scalar context attributes', () => { expect(parseContext('{"userId":"x","attributes":{"country":"EE","paid":true,"age":42}}')).toEqual({ userId: 'x', attributes: { country: 'EE', paid: true, age: 42 } }); });
+});
+describe('rule value editing', () => {
+  const draft = (text: string, operator = 'IN') => ({ ...toDraft({ id: 'one', attribute: 'country', operator: operator as 'IN', values: ['x'], serveValue: true }), text });
+  it('splits on any line ending, trims, drops blanks and removes exact duplicates', () => {
+    expect(splitValues(' EE \r\n\r\nFI\rSE\n\n  EE\n  \t\n')).toEqual(['EE', 'FI', 'SE']);
+    expect(splitValues('EE\nee')).toEqual(['EE', 'ee']);
+    expect(splitValues('\n\r\n  ')).toEqual([]);
+  });
+  it('saves values with a trailing newline, CRLF and blank lines', () => {
+    expect(rulesFromDraft([draft('EE\r\n\r\nFI\r\n')])[0].values).toEqual(['EE', 'FI']);
+    expect(rulesFromDraft([draft('EE\n', 'EQUALS')])[0].values).toEqual(['EE']);
+  });
+  it('explains problems by rule position without index paths', () => {
+    expect(() => rulesFromDraft([draft('EE'), draft('\n \n')])).toThrow('Rule 2 needs at least one value');
+    expect(() => rulesFromDraft([draft('EE\nFI', 'EQUALS')])).toThrow('Rule 1 uses EQUALS, which takes one value, but has 2');
+    expect(() => rulesFromDraft([draft('beta', 'SEMVER_GTE')])).toThrow('Rule 1: "beta" is not a SemVer version');
+    expect(() => rulesFromDraft([draft(Array.from({ length: 21 }, (_, i) => `v${i}`).join('\n'))])).toThrow('limit is 20');
+    expect(() => rulesFromDraft([{ ...draft('EE'), attribute: '  ' }])).toThrow('Rule 1 needs an attribute name');
+  });
 });
 describe('portable evaluator', () => {
   it('keeps bucket boundaries and Unicode aligned with native SHA-256 and the existing engine', async () => {

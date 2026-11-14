@@ -24,6 +24,25 @@ export function parseRules(value: unknown, where = 'rules'): TargetingRule[] {
     return { id, attribute, operator: rule.operator as TargetingRule['operator'], values, serveValue: bool(rule.serveValue, `${path}.serveValue`) };
   });
 }
+export interface RuleDraft extends TargetingRule { text: string }
+export const toDraft = (rule: TargetingRule): RuleDraft => ({ ...rule, text: rule.values.join('\n') });
+/** One value per line: any line ending, trimmed, blanks dropped, exact duplicates removed. */
+export function splitValues(text: string): string[] { return [...new Set(text.split(/\r\n|\r|\n/).map(line => line.trim()).filter(Boolean))]; }
+/** Turns rule drafts into validated rules, with messages that name the rule by its position. */
+export function rulesFromDraft(drafts: RuleDraft[]): TargetingRule[] {
+  const rules = drafts.map(({ text, ...rule }, index) => {
+    const who = `Rule ${index + 1}`; const values = splitValues(text);
+    if (!rule.attribute.trim()) throw new Error(`${who} needs an attribute name.`);
+    if (!values.length) throw new Error(`${who} needs at least one value. Enter one value per line.`);
+    if (values.length > 20) throw new Error(`${who} has ${values.length} values; the limit is 20.`);
+    if (values.some(value => value.length > 500)) throw new Error(`${who} has a value longer than 500 characters.`);
+    if (values.some(value => /[\u0000-\u001f]/.test(value))) throw new Error(`${who} has a value with a control character. Remove it and save again.`);
+    if (!['IN', 'NOT_IN'].includes(rule.operator) && values.length !== 1) throw new Error(`${who} uses ${rule.operator}, which takes one value, but has ${values.length}. Remove the extra lines or switch to IN.`);
+    if (rule.operator === 'SEMVER_GTE' && !isSemver(values[0])) throw new Error(`${who}: "${values[0]}" is not a SemVer version. Use a form such as 2.5.0 or 2.5.0-rc.1.`);
+    return { ...rule, values };
+  });
+  try { return parseRules(rules); } catch (caught) { throw new Error((caught as Error).message.replace(/^rules\[(\d+)\]/, (_match, index) => `Rule ${Number(index) + 1}`)); }
+}
 export function parseFlags(input: string): FlagsFile {
   if (new TextEncoder().encode(input).length > MAX_FLAGS_FILE) fail('File', 'at most 4 MiB');
   let value: unknown; try { value = JSON.parse(input.replace(/^\uFEFF/, '')); } catch { return fail('File', 'valid flags JSON'); }
