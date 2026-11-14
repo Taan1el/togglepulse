@@ -92,6 +92,38 @@ describe('rule operators', () => {
   });
 });
 
+describe('SemVer 2.0.0 precedence', () => {
+  const rule = (operator: TargetingRule['operator'], values: string[], attribute: string): TargetingRule => ({ id: 'r', attribute, operator, values, serveValue: true });
+  const ordered = ['1.0.0-alpha', '1.0.0-alpha.1', '1.0.0-alpha.beta', '1.0.0-beta', '1.0.0-beta.2', '1.0.0-beta.11', '1.0.0-rc.1', '1.0.0', '2.0.0', '2.1.0', '2.1.1'];
+  it('orders the specification example list strictly', () => {
+    for (let i = 0; i < ordered.length; i++) for (let j = 0; j < ordered.length; j++) expect(compareSemver(ordered[i], ordered[j])).toBe(Math.sign(i - j));
+  });
+
+  it('does not read digits out of prerelease text', () => {
+    expect(compareSemver('2.5.0-beta2', '2.5.2')).toBe(-1);
+    expect(compareSemver('1.0.0-rc10', '1.0.10')).toBe(-1);
+    expect(evaluateRule(rule('SEMVER_GTE', ['2.5.2'], 'appVersion'), { userId: 'u', attributes: { appVersion: '2.5.0-beta2' } })).toBe(false);
+    expect(evaluateRule(rule('SEMVER_GTE', ['2.5.0'], 'appVersion'), { userId: 'u', attributes: { appVersion: '2.5.0-beta2' } })).toBe(false);
+    expect(evaluateRule(rule('SEMVER_GTE', ['2.5.0-beta2'], 'appVersion'), { userId: 'u', attributes: { appVersion: '2.5.0' } })).toBe(true);
+  });
+
+  it('ignores build metadata, fills missing parts and allows a leading v', () => {
+    expect(compareSemver('1.0.0+a', '1.0.0+b')).toBe(0);
+    expect(compareSemver('1.0.0-rc.1+a', '1.0.0-rc.1')).toBe(0);
+    expect(compareSemver('v2', '2.0.0')).toBe(0);
+    expect(compareSemver('1.2', '1.2.0')).toBe(0);
+  });
+
+  it('never matches an invalid version on either side', () => {
+    for (const bad of ['', 'latest', '1.x', '1.2.3.4', '01.2.3', '1.0.0-', '1.0.0-01', '1.0.0+']) {
+      expect(compareSemver(bad, '0.0.0')).toBeNaN();
+      expect(evaluateRule(rule('SEMVER_GTE', ['0.0.0'], 'appVersion'), { userId: 'u', attributes: { appVersion: bad } })).toBe(false);
+      expect(evaluateRule(rule('SEMVER_GTE', [bad], 'appVersion'), { userId: 'u', attributes: { appVersion: '9.9.9' } })).toBe(false);
+    }
+    expect(evaluateRule(rule('SEMVER_GTE', [], 'appVersion'), { userId: 'u', attributes: { appVersion: '9.9.9' } })).toBe(false);
+  });
+});
+
 describe('evaluateFlag precedence', () => {
   const flag = (): FeatureFlag => ({
     key: 'f', name: 'F', description: '', tags: [], evaluationCount: 0, createdAt: '', updatedAt: '',

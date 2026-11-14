@@ -1,5 +1,5 @@
 import type { EnvironmentConfig, EvaluationContext, FeatureFlag, TargetingRule } from '../../../shared/types';
-import { ENVIRONMENTS, RULE_OPERATORS } from '../../../shared/evaluate';
+import { ENVIRONMENTS, RULE_OPERATORS, isSemver } from '../../../shared/evaluate';
 export const MAX_FLAGS_FILE = 4 * 1024 * 1024;
 export interface StaticFlag { key: string; name: string; description: string; tags: string[]; environments: Record<string, EnvironmentConfig> }
 export interface FlagsFile { version: 1; bucketing: 'sha256-32be-mod100'; flags: StaticFlag[] }
@@ -20,7 +20,7 @@ export function parseRules(value: unknown, where = 'rules'): TargetingRule[] {
     if (!Array.isArray(rule.values) || rule.values.length < 1 || rule.values.length > 20) fail(`${path}.values`, '1 to 20 strings');
     const values = rule.values.map((item, position) => string(item, `${path}.values[${position}]`, 500));
     if (!['IN', 'NOT_IN'].includes(rule.operator as string) && values.length !== 1) fail(`${path}.values`, 'one value for this operator');
-    if (rule.operator === 'SEMVER_GTE' && !/^\d{1,9}(?:\.\d{1,9}){0,3}$/.test(values[0])) fail(`${path}.values[0]`, 'a numeric dot version such as 2.5.0');
+    if (rule.operator === 'SEMVER_GTE' && !isSemver(values[0])) fail(`${path}.values[0]`, 'a SemVer version such as 2.5.0 or 2.5.0-rc.1');
     return { id, attribute, operator: rule.operator as TargetingRule['operator'], values, serveValue: bool(rule.serveValue, `${path}.serveValue`) };
   });
 }

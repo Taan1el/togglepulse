@@ -28,17 +28,37 @@ export function computeBucket(userId: string, flagKey: string): number {
   return first32 % 100;
 }
 
+const SEMVER = /^v?(0|[1-9]\d*)(?:\.(0|[1-9]\d*))?(?:\.(0|[1-9]\d*))?(?:-((?:0|[1-9]\d*|\d*[a-z-][0-9a-z-]*)(?:\.(?:0|[1-9]\d*|\d*[a-z-][0-9a-z-]*))*))?(?:\+[0-9a-z-]+(?:\.[0-9a-z-]+)*)?$/;
+
+/** True when the text is a valid version for SEMVER_GTE (see compareSemver). */
+export const isSemver = (version: string): boolean => SEMVER.test(String(version).toLowerCase());
+
+const compareDigits = (a: string, b: string): number =>
+  a.length !== b.length ? (a.length < b.length ? -1 : 1) : a < b ? -1 : a > b ? 1 : 0;
+
+/**
+ * SemVer 2.0.0 precedence. Missing minor and patch parts count as 0, one
+ * leading "v" is allowed, text is compared case-insensitively and build
+ * metadata is ignored. Returns -1, 0 or 1, or NaN when either side is not a
+ * valid version, so `compareSemver(a, b) >= 0` is false for invalid input.
+ */
 export function compareSemver(a: string, b: string): number {
-  const parse = (v: string) => v.replace(/[^0-9.]/g, '').split('.').map((n) => parseInt(n, 10) || 0);
-  const partsA = parse(a);
-  const partsB = parse(b);
-  for (let i = 0; i < Math.max(partsA.length, partsB.length); i++) {
-    const numA = partsA[i] || 0;
-    const numB = partsB[i] || 0;
-    if (numA > numB) return 1;
-    if (numA < numB) return -1;
+  const left = SEMVER.exec(String(a).toLowerCase());
+  const right = SEMVER.exec(String(b).toLowerCase());
+  if (!left || !right) return NaN;
+  for (let i = 1; i <= 3; i++) {
+    const diff = compareDigits(left[i] || '0', right[i] || '0');
+    if (diff) return diff;
   }
-  return 0;
+  const x = left[4]?.split('.') ?? [];
+  const y = right[4]?.split('.') ?? [];
+  if (!x.length || !y.length) return Math.sign(y.length - x.length);
+  for (let i = 0; i < Math.min(x.length, y.length); i++) {
+    const numeric = [/^\d+$/.test(x[i]), /^\d+$/.test(y[i])];
+    const diff = numeric[0] && numeric[1] ? compareDigits(x[i], y[i]) : numeric[0] ? -1 : numeric[1] ? 1 : x[i] < y[i] ? -1 : x[i] > y[i] ? 1 : 0;
+    if (diff) return diff;
+  }
+  return Math.sign(x.length - y.length);
 }
 
 export function evaluateRule(rule: TargetingRule, context: EvaluationContext): boolean {
@@ -61,7 +81,7 @@ export function evaluateRule(rule: TargetingRule, context: EvaluationContext): b
     case 'STARTS_WITH':
       return strVal.startsWith(first || '');
     case 'SEMVER_GTE':
-      return compareSemver(strVal, rule.values[0] || '0.0.0') >= 0;
+      return first !== undefined && compareSemver(strVal, first) >= 0;
     default:
       return false;
   }

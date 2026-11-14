@@ -23,7 +23,7 @@ describe('versioned flags files', () => {
     expect(() => parseRules([{ ...rule, attribute: '__proto__' }])).toThrow('non-reserved');
     expect(() => parseRules([{ ...rule, values: [] }])).toThrow('values');
     expect(() => parseRules([{ ...rule, values: ['EE', 'FI'] }])).toThrow('one value');
-    expect(() => parseRules([{ ...rule, operator: 'SEMVER_GTE', values: ['2.5-beta'] }])).toThrow('numeric dot');
+    expect(() => parseRules([{ ...rule, operator: 'SEMVER_GTE', values: ['2.5.x'] }])).toThrow('SemVer version');
   });
   it.each(['{', '{}', '{"userId":5}', '{"userId":"x","attributes":{"__proto__":"yes"}}', '{"userId":"x","attributes":{"role":[]}}'])('rejects malformed contexts %s', input => expect(() => parseContext(input)).toThrow());
   it('copies only owned scalar context attributes', () => { expect(parseContext('{"userId":"x","attributes":{"country":"EE","paid":true,"age":42}}')).toEqual({ userId: 'x', attributes: { country: 'EE', paid: true, age: 42 } }); });
@@ -45,6 +45,22 @@ describe('portable evaluator', () => {
   ])('matches %s identically in the editor and export', async (operator, values, value, matches) => {
     const data = fixture(); data.flags[0].environments.production.rules = parseRules([{ id: 'rule', attribute: 'probe', operator, values, serveValue: true }]);
     const context = { userId: 'test', attributes: { probe: value } }; const result = await evaluate(data, 'checkout', 'production', context);
+    expect(result.reason === 'RULE_MATCH').toBe(matches);
+    const { evaluatedAt: _time, ...legacy } = evaluateFlag(matrixFlags(data)[0], 'production', context); expect(result).toEqual(legacy);
+  });
+  it.each([
+    ['2.5.0-beta2', '2.5.2', false], ['1.0.0-rc10', '1.0.10', false], ['2.5.0-beta2', '2.5.0', false], ['2.5.0', '2.5.0-beta2', true],
+    ['1.0.0-alpha', '1.0.0-alpha.1', false], ['1.0.0-alpha.1', '1.0.0-alpha.beta', false], ['1.0.0-alpha.beta', '1.0.0-beta', false],
+    ['1.0.0-beta', '1.0.0-beta.2', false], ['1.0.0-beta.2', '1.0.0-beta.11', false], ['1.0.0-beta.11', '1.0.0-rc.1', false], ['1.0.0-rc.1', '1.0.0', false],
+    ['1.0.0-beta.11', '1.0.0-beta.2', true], ['1.0.0-alpha.beta', '1.0.0-alpha.1', true], ['1.0.0-rc.1', '1.0.0-beta.11', true], ['1.0.0-alpha.1', '1.0.0-alpha', true],
+    ['1.0.0-RC.1', '1.0.0-rc.1', true], ['1.0.0+build.5', '1.0.0+build.9', true], ['1.0.0+b', '1.0.0-b', true], ['1.0.0-a+x', '1.0.0-a+y', true],
+    ['v2.0', '2.0.0', true], ['2', '2.0.0', true], ['2.10.0', '2.9.0', true], ['2.9.0', '2.10.0', false],
+    ['99999999999999999999.0.0', '99999999999999999998.0.0', true], ['2.5.2', '2.5.2', true],
+    ['2.x', '1.0.0', false], ['latest', '1.0.0', false], ['1.0.0-', '0.1.0', false], ['1.0.0', 'abc', false], ['1.0.0', '', false],
+    ['01.2.3', '1.2.3', false], ['1.2.3.4', '1.2.3', false], ['1.0.0-01', '1.0.0-0', false], ['1.0.0--', '0.0.0', true],
+  ])('compares SemVer %s against %s with the same result in the editor and export (match %s)', async (attribute, rule, matches) => {
+    const data = fixture(); data.flags[0].environments.production.rules = [{ id: 'rule', attribute: 'appVersion', operator: 'SEMVER_GTE', values: [rule], serveValue: true }];
+    const context = { userId: 'test', attributes: { appVersion: attribute } }; const result = await evaluate(data, 'checkout', 'production', context);
     expect(result.reason === 'RULE_MATCH').toBe(matches);
     const { evaluatedAt: _time, ...legacy } = evaluateFlag(matrixFlags(data)[0], 'production', context); expect(result).toEqual(legacy);
   });
