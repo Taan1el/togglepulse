@@ -45,6 +45,22 @@ export function rulesFromDraft(drafts: RuleDraft[]): TargetingRule[] {
   });
   try { return parseRules(rules); } catch (caught) { throw new Error((caught as Error).message.replace(/^rules\[(\d+)\]/, (_match, index) => `Rule ${Number(index) + 1}`)); }
 }
+export interface DetailsDraft { name: string; description: string; tags: string }
+export const toDetails = (flag: { name: string; description: string; tags: string[] }): DetailsDraft => ({ name: flag.name, description: flag.description, tags: flag.tags.join(', ') });
+/** Validates the name, description and comma-separated tags typed for a flag, with plain messages. */
+export function parseDetails(draft: DetailsDraft): { name: string; description: string; tags: string[] } {
+  const name = draft.name.trim(); const description = draft.description.trim(); const tags = [...new Set(draft.tags.split(',').map(tag => tag.trim()).filter(Boolean))];
+  const control = (text: string) => /[\u0000-\u001f]/.test(text);
+  if (!name) throw new Error('Flag name is required.');
+  if (name.length > 200) throw new Error(`Flag name can be at most 200 characters; it has ${name.length}.`);
+  if (control(name)) throw new Error('Flag name cannot contain line breaks or control characters.');
+  if (description.length > 1000) throw new Error(`Description can be at most 1000 characters; it has ${description.length}.`);
+  if (control(description)) throw new Error('Description cannot contain line breaks or control characters.');
+  if (tags.length > 20) throw new Error(`Use at most 20 tags; there are ${tags.length}.`);
+  const long = tags.find(tag => tag.length > 100); if (long) throw new Error(`Tag "${long.slice(0, 20)}..." is longer than 100 characters.`);
+  if (tags.some(control)) throw new Error('Tags cannot contain control characters.');
+  return { name, description, tags };
+}
 export function parseFlags(input: string): FlagsFile {
   if (new TextEncoder().encode(input).length > MAX_FLAGS_FILE) fail('File', 'at most 4 MiB');
   let value: unknown; try { value = JSON.parse(input.replace(/^\uFEFF/, '')); } catch { return fail('File', 'valid flags JSON'); }

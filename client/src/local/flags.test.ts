@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { createHash } from 'node:crypto';
 import { defaultEnvironments, evaluateFlag } from '../../../shared/evaluate';
-import { emptyFlags, matrixFlags, parseContext, parseFlags, parseRules, parseSaved, newFlagEnvironments, rulesFromDraft, splitValues, toDraft, type FlagsFile } from './flags';
+import { emptyFlags, matrixFlags, parseContext, parseFlags, parseRules, parseSaved, newFlagEnvironments, parseDetails, rulesFromDraft, splitValues, toDetails, toDraft, type FlagsFile } from './flags';
 import { evaluate, evaluatorSource, testVectors } from './exports';
 const fixture = (): FlagsFile => ({ ...emptyFlags(), flags: [{ key: 'checkout', name: 'Checkout', description: '', tags: ['synthetic'], environments: defaultEnvironments() }] });
 describe('versioned flags files', () => {
@@ -48,6 +48,22 @@ describe('new flag defaults', () => {
     for (const config of Object.values(environments)) expect(config).toEqual({ enabled: false, killSwitchActive: false, rolloutPercentage: 0, rules: [] });
     const file = { ...emptyFlags(), flags: [{ key: 'fresh', name: 'Fresh', description: '', tags: [], environments }] }; expect(parseFlags(JSON.stringify(file))).toEqual(file);
     for (const env of Object.keys(environments)) expect((await evaluate(file, 'fresh', env, { userId: 'visitor-1' })).enabled).toBe(false);
+  });
+});
+describe('flag details editing', () => {
+  const draft = (change: Partial<{ name: string; description: string; tags: string }> = {}) => ({ name: 'Checkout', description: 'New checkout', tags: 'payments, web', ...change });
+  it('trims the name and description and splits, trims and de-duplicates tags', () => {
+    expect(parseDetails(draft({ name: '  Checkout v2 ', description: ' Faster. ', tags: ' payments ,web,, payments , ' }))).toEqual({ name: 'Checkout v2', description: 'Faster.', tags: ['payments', 'web'] });
+    expect(parseDetails(draft({ description: '', tags: '' }))).toEqual({ name: 'Checkout', description: '', tags: [] });
+    expect(parseDetails(toDetails({ name: 'A', description: 'B', tags: ['x', 'y'] }))).toEqual({ name: 'A', description: 'B', tags: ['x', 'y'] });
+  });
+  it.each([
+    [{ name: '  ' }, 'Flag name is required.'], [{ name: 'n'.repeat(201) }, 'at most 200 characters'], [{ name: 'a\tb' }, 'Flag name cannot contain'],
+    [{ description: 'd'.repeat(1001) }, 'Description can be at most 1000'], [{ description: 'a\nb' }, 'Description cannot contain line breaks'],
+    [{ tags: Array.from({ length: 21 }, (_, i) => `t${i}`).join(',') }, 'at most 20 tags'], [{ tags: `ok,${'t'.repeat(101)}` }, 'longer than 100 characters'],
+  ])('rejects %j with a plain message', (change, message) => expect(() => parseDetails(draft(change))).toThrow(message));
+  it('produces values the flags file validation accepts', () => {
+    const file = fixture(); Object.assign(file.flags[0], parseDetails(draft({ name: ' Pay ', tags: 'b, a' }))); expect(parseFlags(JSON.stringify(file)).flags[0]).toMatchObject({ name: 'Pay', tags: ['b', 'a'] });
   });
 });
 describe('rule value editing', () => {

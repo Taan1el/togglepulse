@@ -40,6 +40,18 @@ describe('local switchboard', () => {
     const created = store.saveWorkspace.mock.calls[0][0].flags.find((item: { key: string }) => item.key === 'fresh');
     for (const environment of ['production', 'staging', 'development']) expect(created.environments[environment]).toMatchObject({ enabled: false, rolloutPercentage: 0, killSwitchActive: false });
   });
+  it('edits the name, description and tags of a local flag', async () => {
+    render(<LocalFlags />); const name = await screen.findByLabelText('Flag name'); await waitFor(() => expect(screen.getByRole('button', { name: 'Save details' })).toBeEnabled());
+    fireEvent.change(name, { target: { value: '  Checkout v2 ' } }); fireEvent.change(screen.getByLabelText('Description'), { target: { value: ' Faster checkout ' } }); fireEvent.change(screen.getByLabelText('Tags, separated by commas'), { target: { value: 'payments, web,, payments' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save details' })); await waitFor(() => expect(store.saveWorkspace).toHaveBeenCalled());
+    expect(store.saveWorkspace.mock.calls[0][0].flags[0]).toMatchObject({ key: 'checkout', name: 'Checkout v2', description: 'Faster checkout', tags: ['payments', 'web'] });
+    await waitFor(() => expect(screen.getByLabelText('Flag name')).toHaveValue('Checkout v2'));
+  });
+  it('rejects an empty name next to the details and saves nothing', async () => {
+    render(<LocalFlags />); const name = await screen.findByLabelText('Flag name'); await waitFor(() => expect(screen.getByRole('button', { name: 'Save details' })).toBeEnabled());
+    fireEvent.change(name, { target: { value: '   ' } }); fireEvent.click(screen.getByRole('button', { name: 'Save details' }));
+    expect(await screen.findByText('Flag name is required.')).toBeInTheDocument(); expect(store.saveWorkspace).not.toHaveBeenCalled();
+  });
   it('says whole percent beside the rollout control', async () => {
     render(<LocalFlags />); expect(await screen.findByText('Whole percent, 0 to 100.')).toBeInTheDocument();
   });
