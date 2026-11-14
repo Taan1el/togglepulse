@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { axe } from '../test/axe';
 import { defaultEnvironments } from '../../../shared/evaluate';
 import { LocalFlags } from './LocalFlags';
@@ -7,6 +7,8 @@ const store = vi.hoisted(() => ({ loadWorkspaceSnapshot: vi.fn(), saveWorkspace:
 const importer = vi.hoisted(() => ({ importFlags: vi.fn() }));
 vi.mock('./workspace', () => store);
 vi.mock('./importFile', () => importer);
+// Wait for the editor, then let the passive effect that copies saved rules into the draft run before the test types.
+const editorReady = async () => { await waitFor(() => expect(screen.getByRole('button', { name: 'Add rule' })).toBeEnabled()); await act(async () => {}); };
 describe('local switchboard', () => {
   beforeEach(() => { vi.clearAllMocks(); store.loadWorkspaceSnapshot.mockResolvedValue({ data: { version: 1, bucketing: 'sha256-32be-mod100', flags: [{ key: 'checkout', name: 'Checkout', description: '', tags: [], environments: defaultEnvironments() }] }, revision: 0 }); store.saveWorkspace.mockResolvedValue(1); });
   it('has accessible matrix, rule editor, creation and import screens', async () => {
@@ -18,7 +20,7 @@ describe('local switchboard', () => {
     fireEvent.keyDown(document, { key: 'Escape' }); expect(opener).toHaveFocus();
   });
   it('saves rule values written with blank lines, trailing newlines and CRLF', async () => {
-    render(<LocalFlags />); await waitFor(() => expect(screen.getByRole('button', { name: 'Add rule' })).toBeEnabled());
+    render(<LocalFlags />); await editorReady();
     fireEvent.click(screen.getByRole('button', { name: 'Add rule' }));
     fireEvent.change(screen.getByLabelText('Operator for rule 1'), { target: { value: 'IN' } });
     fireEvent.change(screen.getByLabelText('Values for rule 1, one per line'), { target: { value: ' EE \r\n\r\nFI\r\n EE\n\n' } });
@@ -27,7 +29,7 @@ describe('local switchboard', () => {
     expect(store.saveWorkspace.mock.calls[0][0].flags[0].environments.production.rules[0].values).toEqual(['EE', 'FI']);
   });
   it('shows a readable message next to the rules when a rule has no values', async () => {
-    render(<LocalFlags />); await waitFor(() => expect(screen.getByRole('button', { name: 'Add rule' })).toBeEnabled());
+    render(<LocalFlags />); await editorReady();
     fireEvent.click(screen.getByRole('button', { name: 'Add rule' }));
     fireEvent.change(screen.getByLabelText('Values for rule 1, one per line'), { target: { value: '\n \n' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save rules' }));
@@ -41,19 +43,19 @@ describe('local switchboard', () => {
     for (const environment of ['production', 'staging', 'development']) expect(created.environments[environment]).toMatchObject({ enabled: false, rolloutPercentage: 0, killSwitchActive: false });
   });
   it('edits the name, description and tags of a local flag', async () => {
-    render(<LocalFlags />); const name = await screen.findByLabelText('Flag name'); await waitFor(() => expect(screen.getByRole('button', { name: 'Save details' })).toBeEnabled());
+    render(<LocalFlags />); const name = await screen.findByLabelText('Flag name'); await waitFor(() => expect(screen.getByRole('button', { name: 'Save details' })).toBeEnabled()); await act(async () => {});
     fireEvent.change(name, { target: { value: '  Checkout v2 ' } }); fireEvent.change(screen.getByLabelText('Description'), { target: { value: ' Faster checkout ' } }); fireEvent.change(screen.getByLabelText('Tags, separated by commas'), { target: { value: 'payments, web,, payments' } });
     fireEvent.click(screen.getByRole('button', { name: 'Save details' })); await waitFor(() => expect(store.saveWorkspace).toHaveBeenCalled());
     expect(store.saveWorkspace.mock.calls[0][0].flags[0]).toMatchObject({ key: 'checkout', name: 'Checkout v2', description: 'Faster checkout', tags: ['payments', 'web'] });
     await waitFor(() => expect(screen.getByLabelText('Flag name')).toHaveValue('Checkout v2'));
   });
   it('rejects an empty name next to the details and saves nothing', async () => {
-    render(<LocalFlags />); const name = await screen.findByLabelText('Flag name'); await waitFor(() => expect(screen.getByRole('button', { name: 'Save details' })).toBeEnabled());
+    render(<LocalFlags />); const name = await screen.findByLabelText('Flag name'); await waitFor(() => expect(screen.getByRole('button', { name: 'Save details' })).toBeEnabled()); await act(async () => {});
     fireEvent.change(name, { target: { value: '   ' } }); fireEvent.click(screen.getByRole('button', { name: 'Save details' }));
     expect(await screen.findByText('Flag name is required.')).toBeInTheDocument(); expect(store.saveWorkspace).not.toHaveBeenCalled();
   });
   const twoFlags = () => { store.loadWorkspaceSnapshot.mockResolvedValue({ data: { version: 1, bucketing: 'sha256-32be-mod100', flags: ['checkout', 'search'].map(key => ({ key, name: key, description: '', tags: [], environments: defaultEnvironments() })) }, revision: 0 }); };
-  const addDraftRule = async () => { await waitFor(() => expect(screen.getByRole('button', { name: 'Add rule' })).toBeEnabled()); fireEvent.click(screen.getByRole('button', { name: 'Add rule' })); fireEvent.change(screen.getByLabelText('Attribute for rule 1'), { target: { value: 'plan' } }); };
+  const addDraftRule = async () => { await editorReady(); fireEvent.click(screen.getByRole('button', { name: 'Add rule' })); fireEvent.change(screen.getByLabelText('Attribute for rule 1'), { target: { value: 'plan' } }); };
   it('keeps an unsaved rule draft when another control saves', async () => {
     render(<LocalFlags />); await addDraftRule();
     fireEvent.click(screen.getByRole('switch', { name: 'Enabled in production' })); await waitFor(() => expect(store.saveWorkspace).toHaveBeenCalledTimes(1));

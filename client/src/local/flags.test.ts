@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { createHash } from 'node:crypto';
 import { defaultEnvironments, evaluateFlag } from '../../../shared/evaluate';
 import { emptyFlags, matrixFlags, parseContext, parseFlags, parseRules, parseSaved, newFlagEnvironments, parseDetails, rulesFromDraft, splitValues, toDetails, toDraft, type FlagsFile } from './flags';
-import { evaluate, evaluatorSource, testVectors } from './exports';
+import { boundaryCases, evaluate, evaluatorSource, operatorCases, semverCases, testVectors } from './exports';
 const fixture = (): FlagsFile => ({ ...emptyFlags(), flags: [{ key: 'checkout', name: 'Checkout', description: '', tags: ['synthetic'], environments: defaultEnvironments() }] });
 describe('versioned flags files', () => {
   it('round trips schema fields and ignores extra metadata', () => { const data = fixture(); expect(parseFlags('\uFEFF' + JSON.stringify({ ...data, extra: 'ignored' }))).toEqual(data); });
@@ -142,5 +142,50 @@ describe('portable evaluator', () => {
     }
   });
 });
-
+describe('exported conformance vectors', () => {
+  const legacyCompare = (a: string, b: string) => { const parts = (value: string) => value.replace(/[^0-9.]/g, '').split('.').map(n => parseInt(n, 10) || 0); const aa = parts(a), bb = parts(b); for (let i = 0; i < Math.max(aa.length, bb.length); i++) if ((aa[i] || 0) !== (bb[i] || 0)) return (aa[i] || 0) > (bb[i] || 0) ? 1 : -1; return 0; };
+  const kitFor = async () => testVectors(fixture());
+  it('uses user IDs whose buckets match the recorded boundary table', () => {
+    for (const [, bucket, userId] of boundaryCases) expect(createHash('sha256').update(`${userId}:boundary`).digest().readUInt32BE(0) % 100).toBe(bucket);
+  });
+  it('covers a user at the rollout percent and one just below it for 0, 1, 50, 99 and 100 percent', async () => {
+    const kit = await kitFor(); const seen = new Map<number, number[]>();
+    for (const group of kit.conformance.filter(item => item.flagKey === 'boundary')) {
+      const percent = group.flags.flags[0].environments.production.rolloutPercentage; seen.set(percent, group.cases.map(item => item.expected.bucket as number));
+      for (const item of group.cases) expect(item.expected).toMatchObject({ reason: 'ROLLOUT_BUCKET', enabled: (item.expected.bucket as number) < percent });
+    }
+    expect([...seen.keys()]).toEqual([0, 1, 50, 99, 100]);
+    expect(seen.get(0)).toEqual([0]); expect(seen.get(1)).toEqual([1, 0]); expect(seen.get(50)).toEqual([50, 49]); expect(seen.get(99)).toEqual([99, 98]); expect(seen.get(100)).toEqual([99]);
+  });
+  it('matches the hand-written answers for every operator, missing attribute and version', async () => {
+    const kit = await kitFor(); const truth = new Map<string, boolean>();
+    for (const [operator, values, value, matches] of operatorCases) truth.set(`${operator}|${values.join(',')}|${value}`, matches);
+    for (const [version, rule, matches] of semverCases) truth.set(`SEMVER_GTE|${rule}|${version}`, matches);
+    let checked = 0;
+    for (const group of kit.conformance.filter(item => item.flagKey === 'conformance')) {
+      const rule = group.flags.flags[0].environments.production.rules[0];
+      for (const item of group.cases) { const key = `${rule.operator}|${rule.values.join(',')}|${item.context.attributes?.probe}`; expect(truth.has(key), key).toBe(true); expect(item.expected.reason === 'RULE_MATCH', `${group.name}: ${item.name}`).toBe(truth.get(key)); checked++; }
+    }
+    expect(checked).toBe(operatorCases.length + semverCases.length);
+    for (const operator of ['EQUALS', 'NOT_EQUALS', 'IN', 'NOT_IN', 'CONTAINS', 'STARTS_WITH', 'SEMVER_GTE']) expect(operatorCases.some(([name, , , matches]) => name === operator && !matches)).toBe(true);
+  });
+  it('gives the same answers in the exported module and the server evaluator', async () => {
+    const exported = await import(/* @vite-ignore */ `data:text/javascript;base64,${Buffer.from(evaluatorSource).toString('base64')}`) as { evaluate: typeof evaluate };
+    for (const group of (await kitFor()).conformance) for (const item of group.cases) {
+      expect(await exported.evaluate(group.flags, group.flagKey, group.environment, item.context), `${group.name}: ${item.name}`).toEqual(item.expected);
+      const { evaluatedAt: _time, ...server } = evaluateFlag(matrixFlags(group.flags as FlagsFile)[0], group.environment, item.context); expect(server, `${group.name}: ${item.name}`).toEqual(item.expected);
+    }
+  });
+  it('fails a port that strips non-digits from versions or uses <= for the bucket check', async () => {
+    const kit = await kitFor(); const cases = kit.conformance.flatMap(group => group.cases.map(item => ({ group, item })));
+    const legacyMisses = cases.filter(({ group, item }) => { const rule = group.flags.flags[0].environments.production.rules[0]; return rule?.operator === 'SEMVER_GTE' && (legacyCompare(String(item.context.attributes?.probe).toLowerCase(), rule.values[0]) >= 0) !== (item.expected.reason === 'RULE_MATCH'); });
+    expect(legacyMisses.length).toBeGreaterThanOrEqual(10);
+    expect(cases.some(({ item }) => item.expected.reason === 'RULE_MATCH' && item.expected.matchedRuleId === 'probe-rule' && item.context.attributes?.probe === '2.5.0-beta2')).toBe(false);
+    const lessOrEqual = cases.filter(({ group, item }) => group.flagKey === 'boundary' && ((item.expected.bucket as number) <= group.flags.flags[0].environments.production.rolloutPercentage) !== item.expected.enabled);
+    expect(lessOrEqual.map(({ item }) => item.expected.bucket)).toEqual([0, 1, 50, 99]);
+  });
+  it('documents the crypto.subtle requirement in the exported files', async () => {
+    expect(evaluatorSource).toMatch(/Requires crypto\.subtle/); expect((await kitFor()).notes.join(' ')).toMatch(/needs crypto\.subtle.*secure contexts/);
+  });
+});
 
