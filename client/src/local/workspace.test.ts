@@ -1,6 +1,6 @@
 import 'fake-indexeddb/auto';
 import { describe, expect, it } from 'vitest';
-import { clearWorkspace, loadMode, loadWorkspaceSnapshot, saveMode, saveWorkspace } from './workspace';
+import { BLOCKED_MESSAGE, clearWorkspace, loadMode, loadWorkspaceSnapshot, saveMode, saveWorkspace } from './workspace';
 describe('browser workspace transactions', () => {
   it('round trips and separates source mode, rejects stale writers, and retains revisions after clearing', async () => {
     const first = await loadWorkspaceSnapshot();
@@ -11,5 +11,10 @@ describe('browser workspace transactions', () => {
     await clearWorkspace(); expect((await loadWorkspaceSnapshot()).data).toBeNull();
     await expect(saveWorkspace({}, { expectedRevision: revision })).rejects.toThrow('another tab');
     await saveMode('workspace'); expect(await loadMode()).toBe('workspace');
+  });
+});
+describe('storage messages', () => {
+  it('names this product when another tab blocks a storage upgrade', () => {
+    expect(BLOCKED_MESSAGE).toBe('Close other TogglePulse tabs to update browser storage.');
   });
 });

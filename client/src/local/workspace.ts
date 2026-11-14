@@ -5,6 +5,7 @@ const DATABASE_VERSION = 1;
 const STORE_NAME = 'settings';
 const WORKSPACE_KEY = 'workspace';
 const MODE_KEY = 'mode';
+export const BLOCKED_MESSAGE = 'Close other TogglePulse tabs to update browser storage.';
 
 interface WorkspaceRecord<T> {
   version: 1;
@@ -48,7 +49,7 @@ function openDatabase(): Promise<IDBDatabase> {
     request.onerror = () => reject(request.error ?? new Error('Browser storage could not open.'));
     request.onblocked = () => {
       blocked = true;
-      reject(new Error('Close other VaultMesh tabs to update browser storage.'));
+      reject(new Error(BLOCKED_MESSAGE));
     };
     request.onsuccess = () => {
       const database = request.result;
