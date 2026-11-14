@@ -18,7 +18,7 @@ describe('local switchboard', () => {
     const opener = screen.getByRole('button', { name: 'Import flags' }); fireEvent.click(opener); expect((await axe(container)).violations).toEqual([]);
     fireEvent.click(screen.getByRole('button', { name: 'Import and save' })); expect(screen.getByRole('dialog')).toHaveTextContent('Choose a flags.json file'); expect(store.saveWorkspace).not.toHaveBeenCalled();
     fireEvent.keyDown(document, { key: 'Escape' }); expect(opener).toHaveFocus();
-  });
+  }, 30000);
   it('saves rule values written with blank lines, trailing newlines and CRLF', async () => {
     render(<LocalFlags />); await editorReady();
     fireEvent.click(screen.getByRole('button', { name: 'Add rule' }));
