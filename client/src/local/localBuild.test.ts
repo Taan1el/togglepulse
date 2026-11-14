@@ -21,6 +21,7 @@ describe('offline Pages output', () => {
     const worker = await readFile(join(directory, 'sw.js'), 'utf8');
     const assets = await readdir(join(directory, 'assets'));
     for (const asset of assets) expect(worker).toContain(`/togglepulse/assets/${asset}`);
+    expect(worker).toContain("cache: 'reload'"); expect(worker).toContain('SKIP_WAITING'); expect(worker).not.toMatch(/^\s*self\.skipWaiting\(\)/m);
     expect(assets.some(asset => asset.includes('import.worker'))).toBe(true);
     for (const asset of assets.filter(asset => asset.endsWith('.css'))) {
       const css = await readFile(join(directory, 'assets', asset), 'utf8');

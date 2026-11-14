@@ -17,3 +17,5 @@
 .local-flags .table-wrapper{position:relative}
 .local-flags .flag-key,.local-flags .flag-name{overflow-wrap:anywhere;white-space:normal}
 .local-flags .field textarea.mono{font-family:var(--font-mono);font-size:13px}
+.update-notice{max-width:var(--page-max);margin:auto;padding:.75rem var(--page-pad);display:flex;align-items:center;gap:1rem;flex-wrap:wrap;border-bottom:1px solid var(--rule);background:var(--surface)}
+.update-notice p{color:var(--ink);font-size:14px}
