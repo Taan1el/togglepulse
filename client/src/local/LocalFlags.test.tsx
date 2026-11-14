@@ -52,6 +52,36 @@ describe('local switchboard', () => {
     fireEvent.change(name, { target: { value: '   ' } }); fireEvent.click(screen.getByRole('button', { name: 'Save details' }));
     expect(await screen.findByText('Flag name is required.')).toBeInTheDocument(); expect(store.saveWorkspace).not.toHaveBeenCalled();
   });
+  const twoFlags = () => { store.loadWorkspaceSnapshot.mockResolvedValue({ data: { version: 1, bucketing: 'sha256-32be-mod100', flags: ['checkout', 'search'].map(key => ({ key, name: key, description: '', tags: [], environments: defaultEnvironments() })) }, revision: 0 }); };
+  const addDraftRule = async () => { await waitFor(() => expect(screen.getByRole('button', { name: 'Add rule' })).toBeEnabled()); fireEvent.click(screen.getByRole('button', { name: 'Add rule' })); fireEvent.change(screen.getByLabelText('Attribute for rule 1'), { target: { value: 'plan' } }); };
+  it('keeps an unsaved rule draft when another control saves', async () => {
+    render(<LocalFlags />); await addDraftRule();
+    fireEvent.click(screen.getByRole('switch', { name: 'Enabled in production' })); await waitFor(() => expect(store.saveWorkspace).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole('button', { name: 'Trigger kill switch' })); await waitFor(() => expect(store.saveWorkspace).toHaveBeenCalledTimes(2));
+    expect(screen.getByLabelText('Attribute for rule 1')).toHaveValue('plan'); expect(screen.queryByRole('dialog')).toBeNull();
+  });
+  it('warns before an environment change discards a rule draft, and keeps it on cancel', async () => {
+    const { container } = render(<LocalFlags />); await addDraftRule(); const staging = screen.getByRole('button', { name: 'staging' }); staging.focus(); fireEvent.click(staging);
+    const dialog = await screen.findByRole('dialog'); expect(dialog).toHaveTextContent('Discard unsaved changes?'); expect(dialog).toHaveTextContent('Your rule edits for checkout in production are not saved.'); expect((await axe(container)).violations).toEqual([]);
+    expect(screen.getByRole('button', { name: 'Keep editing' })).toHaveFocus(); expect(screen.getByRole('button', { name: 'production' })).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.keyDown(document, { key: 'Escape' }); expect(screen.queryByRole('dialog')).toBeNull(); expect(staging).toHaveFocus();
+    expect(screen.getByLabelText('Attribute for rule 1')).toHaveValue('plan'); expect(screen.getByRole('button', { name: 'production' })).toHaveAttribute('aria-pressed', 'true');
+    fireEvent.click(staging); fireEvent.click(await screen.findByRole('button', { name: 'Discard changes' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'staging' })).toHaveAttribute('aria-pressed', 'true')); expect(screen.queryByLabelText('Attribute for rule 1')).toBeNull();
+  });
+  it('warns before switching flag with unsaved details and needs no warning when nothing changed', async () => {
+    twoFlags(); render(<LocalFlags />); const other = await screen.findByRole('button', { name: /Open search in production/ }); await waitFor(() => expect(other).toBeEnabled());
+    fireEvent.click(other); await waitFor(() => expect(screen.getByLabelText('Flag name')).toHaveValue('search')); expect(screen.queryByRole('dialog')).toBeNull();
+    fireEvent.change(screen.getByLabelText('Flag name'), { target: { value: 'Search v2' } }); fireEvent.click(screen.getByRole('button', { name: /Open checkout in production/ }));
+    expect(await screen.findByRole('dialog')).toHaveTextContent('Your name, description or tag edits for search are not saved.');
+    fireEvent.click(screen.getByRole('button', { name: 'Discard changes' })); await waitFor(() => expect(screen.getByLabelText('Flag name')).toHaveValue('checkout'));
+  });
+  it('lets a kill switch on another flag engage without discarding the draft', async () => {
+    twoFlags(); render(<LocalFlags />); await addDraftRule();
+    fireEvent.click(screen.getByRole('switch', { name: /Kill switch for search in production/ })); await waitFor(() => expect(store.saveWorkspace).toHaveBeenCalledTimes(1));
+    expect(store.saveWorkspace.mock.calls[0][0].flags.find((item: { key: string }) => item.key === 'search').environments.production.killSwitchActive).toBe(true);
+    expect(screen.getByLabelText('Attribute for rule 1')).toHaveValue('plan'); expect(screen.queryByRole('dialog')).toBeNull();
+  });
   it('says whole percent beside the rollout control', async () => {
     render(<LocalFlags />); expect(await screen.findByText('Whole percent, 0 to 100.')).toBeInTheDocument();
   });
