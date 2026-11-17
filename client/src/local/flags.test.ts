@@ -2,7 +2,7 @@
 import { describe, expect, it } from 'vitest';
 import { createHash } from 'node:crypto';
 import { defaultEnvironments, evaluateFlag } from '../../../shared/evaluate';
-import { emptyFlags, matrixFlags, parseContext, parseFlags, parseRules, parseSaved, newFlagEnvironments, parseDetails, rulesFromDraft, splitValues, toDetails, toDraft, type FlagsFile } from './flags';
+import { emptyFlags, invalidVersionRules, matrixFlags, parseContext, parseFlags, parseRules, parseSaved, newFlagEnvironments, parseDetails, rulesFromDraft, splitValues, toDetails, toDraft, type FlagsFile } from './flags';
 import { boundaryCases, evaluate, evaluatorSource, operatorCases, semverCases, testVectors } from './exports';
 const fixture = (): FlagsFile => ({ ...emptyFlags(), flags: [{ key: 'checkout', name: 'Checkout', description: '', tags: ['synthetic'], environments: defaultEnvironments() }] });
 describe('versioned flags files', () => {
@@ -28,6 +28,24 @@ describe('versioned flags files', () => {
     for (let index = 0; index < 200; index++) { const userId = `saved-${index}`; expect((await evaluate(file, 'checkout', 'staging', { userId })).enabled).toBe((await evaluate(saved, 'checkout', 'staging', { userId })).enabled); }
     expect(saved.flags[0].environments.production.rolloutPercentage).toBe(0.1);
     expect(parseSaved(fixture()).adjusted).toEqual([]);
+  });
+  it('opens a workspace saved with a version rule that is not SemVer, keeps the rule and reports it', async () => {
+    const saved = fixture(); saved.flags[0].environments.staging.rules = [
+      { id: 'ok', attribute: 'appVersion', operator: 'SEMVER_GTE', values: ['2.5.0'], serveValue: false },
+      { id: 'four-part', attribute: 'appVersion', operator: 'SEMVER_GTE', values: ['1.2.3.4'], serveValue: true },
+    ];
+    expect(() => parseFlags(JSON.stringify(saved))).toThrow('flags[0].environments.staging.rules[1].values[0]: expected a SemVer version');
+    const { file } = parseSaved(saved);
+    expect(file.flags[0].environments.staging.rules[1].values).toEqual(['1.2.3.4']);
+    expect(invalidVersionRules(file)).toEqual(['Rule 2 of checkout in staging compares against "1.2.3.4", which is not a SemVer version, so it never matches.']);
+    expect(invalidVersionRules(fixture())).toEqual([]);
+    // The rule never matches, so evaluation falls through to the rollout as before.
+    const context = { userId: 'saved-1', attributes: { appVersion: '1.2.3.4' } };
+    file.flags[0].environments.staging.enabled = true; file.flags[0].environments.staging.killSwitchActive = false;
+    expect((await evaluate(file, 'checkout', 'staging', context)).reason).toBe('ROLLOUT_BUCKET');
+    // Leniency covers only the version check; other rule errors still fail.
+    saved.flags[0].environments.staging.rules[1].values = ['1.2.3.4', '2.0.0'];
+    expect(() => parseSaved(saved)).toThrow('one value for this operator');
   });
   it('validates specific rule paths, cardinality and unique IDs', () => {
     const rule = { id: 'one', attribute: 'country', operator: 'EQUALS', values: ['EE'], serveValue: true };

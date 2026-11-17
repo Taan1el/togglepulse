@@ -4,6 +4,11 @@ All notable changes to this project are documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
+## [1.1.2] - 2026-11-17
+
+### Fixed
+- A workspace saved in this browser with a version rule that is not SemVer, such as `1.2.3.4`, opens again instead of failing to load. A notice names each such rule, the rule editor marks its value as invalid, and the rule never matches until the version is corrected. Other changes still save, while exporting flags.json or test-vectors.json asks for the fix first so the exported file can be imported again.
+
 ## [1.1.1] - 2026-11-14
 
 ### Fixed

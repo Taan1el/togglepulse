@@ -11,7 +11,9 @@ function fail(where: string, expected: string): never { throw new Error(`${where
 function object(value: unknown): value is Record<string, unknown> { return !!value && typeof value === 'object' && !Array.isArray(value); }
 function string(value: unknown, where: string, max = 500, empty = false): string { if (typeof value !== 'string' || (!empty && !value.trim()) || value.length > max || /[\u0000-\u001f]/.test(value)) fail(where, `${empty ? '0' : '1'} to ${max} characters without control characters`); return value as string; }
 function bool(value: unknown, where: string): boolean { if (typeof value !== 'boolean') fail(where, 'true or false'); return value as boolean; }
-export function parseRules(value: unknown, where = 'rules'): TargetingRule[] {
+/** keepInvalidVersions lets a saved workspace keep SEMVER_GTE rules whose value is not SemVer; such a rule never matches. */
+export interface ParseOptions { keepInvalidVersions?: boolean }
+export function parseRules(value: unknown, where = 'rules', options: ParseOptions = {}): TargetingRule[] {
   if (!Array.isArray(value) || value.length > 50) fail(where, 'an array of at most 50 rules');
   const seen = new Set<string>();
   return value.map((rule, index) => {
@@ -23,7 +25,7 @@ export function parseRules(value: unknown, where = 'rules'): TargetingRule[] {
     if (!Array.isArray(rule.values) || rule.values.length < 1 || rule.values.length > 20) fail(`${path}.values`, '1 to 20 strings');
     const values = rule.values.map((item, position) => string(item, `${path}.values[${position}]`, 500));
     if (!['IN', 'NOT_IN'].includes(rule.operator as string) && values.length !== 1) fail(`${path}.values`, 'one value for this operator');
-    if (rule.operator === 'SEMVER_GTE' && !isSemver(values[0])) fail(`${path}.values[0]`, 'a SemVer version such as 2.5.0 or 2.5.0-rc.1');
+    if (rule.operator === 'SEMVER_GTE' && !isSemver(values[0]) && !options.keepInvalidVersions) fail(`${path}.values[0]`, 'a SemVer version such as 2.5.0 or 2.5.0-rc.1');
     return { id, attribute, operator: rule.operator as TargetingRule['operator'], values, serveValue: bool(rule.serveValue, `${path}.serveValue`) };
   });
 }
@@ -62,7 +64,7 @@ export function parseDetails(draft: DetailsDraft): { name: string; description: 
   if (tags.some(control)) throw new Error('Tags cannot contain control characters.');
   return { name, description, tags };
 }
-export function parseFlags(input: string): FlagsFile {
+export function parseFlags(input: string, options: ParseOptions = {}): FlagsFile {
   if (new TextEncoder().encode(input).length > MAX_FLAGS_FILE) fail('File', 'at most 4 MiB');
   let value: unknown; try { value = JSON.parse(input.replace(/^\uFEFF/, '')); } catch { return fail('File', 'valid flags JSON'); }
   if (!object(value) || value.version !== 1 || value.bucketing !== 'sha256-32be-mod100' || !Array.isArray(value.flags) || value.flags.length > 200) fail('File', 'version 1, bucketing sha256-32be-mod100, and at most 200 flags');
@@ -81,7 +83,7 @@ export function parseFlags(input: string): FlagsFile {
       if (!object(config)) fail(place, 'an environment config');
       if (typeof config.rolloutPercentage !== 'number' || !Number.isFinite(config.rolloutPercentage) || config.rolloutPercentage < 0 || config.rolloutPercentage > 100) fail(`${place}.rolloutPercentage`, 'a whole number from 0 to 100');
       if (!Number.isInteger(config.rolloutPercentage)) throw new Error(`Flag "${key}" in ${env}: rolloutPercentage ${config.rolloutPercentage} is not a whole percent. Buckets are whole percents, so use a whole number from 0 to 100.`);
-      environments[env] = { enabled: bool(config.enabled, `${place}.enabled`), killSwitchActive: bool(config.killSwitchActive, `${place}.killSwitchActive`), rolloutPercentage: config.rolloutPercentage, rules: parseRules(config.rules, `${place}.rules`) };
+      environments[env] = { enabled: bool(config.enabled, `${place}.enabled`), killSwitchActive: bool(config.killSwitchActive, `${place}.killSwitchActive`), rolloutPercentage: config.rolloutPercentage, rules: parseRules(config.rules, `${place}.rules`, options) };
     }
     return { key, name, description, tags, environments };
   });
@@ -92,6 +94,9 @@ export function parseFlags(input: string): FlagsFile {
  * accepted; a user is on when bucket < percentage, so 0.1 served exactly the
  * users that 1 serves. Round those up to the whole percent they already served
  * and report each change instead of refusing to open the workspace.
+ * Version rules saved before strict SemVer checking (such as 1.2.3.4) are kept
+ * as they are and reported by invalidVersionRules, because no value can be
+ * guessed for them; until fixed they never match.
  */
 export function parseSaved(data: unknown): { file: FlagsFile; adjusted: string[] } {
   const adjusted: string[] = []; const copy = structuredClone(data) as { flags?: unknown };
@@ -101,7 +106,14 @@ export function parseSaved(data: unknown): { file: FlagsFile; adjusted: string[]
       const whole = Math.ceil(config.rolloutPercentage); adjusted.push(`${String(flag.key)} in ${env} was ${config.rolloutPercentage} percent and now reads ${whole} percent, which serves the same users.`); config.rolloutPercentage = whole;
     }
   }
-  return { file: parseFlags(JSON.stringify(copy)), adjusted };
+  return { file: parseFlags(JSON.stringify(copy), { keepInvalidVersions: true }), adjusted };
+}
+/** True when a draft or saved SEMVER_GTE rule holds one value that is not a SemVer version. */
+export const hasInvalidVersion = (operator: TargetingRule['operator'], values: string[]): boolean => operator === 'SEMVER_GTE' && values.length === 1 && !isSemver(values[0]);
+/** One sentence per SEMVER_GTE rule whose value is not SemVer, naming the flag, environment and rule number. */
+export function invalidVersionRules(file: FlagsFile): string[] {
+  return file.flags.flatMap(flag => ENVIRONMENTS.flatMap(env => flag.environments[env].rules.flatMap((rule, index) => hasInvalidVersion(rule.operator, rule.values)
+    ? [`Rule ${index + 1} of ${flag.key} in ${env} compares against "${rule.values[0]}", which is not a SemVer version, so it never matches.`] : [])));
 }
 /** "3 flags and 7 targeting rules", used to say what an import replaces. */
 export function describeFlags(file: FlagsFile): string {

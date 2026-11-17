@@ -7,6 +7,8 @@ const store = vi.hoisted(() => ({ loadWorkspaceSnapshot: vi.fn(), saveWorkspace:
 const importer = vi.hoisted(() => ({ importFlags: vi.fn() }));
 vi.mock('./workspace', () => store);
 vi.mock('./importFile', () => importer);
+const files = vi.hoisted(() => ({ downloadFile: vi.fn() }));
+vi.mock('./files', () => files);
 // Wait for the editor, then let the passive effect that copies saved rules into the draft run before the test types.
 const editorReady = async () => { await waitFor(() => expect(screen.getByRole('button', { name: 'Add rule' })).toBeEnabled()); await act(async () => {}); };
 describe('local switchboard', () => {
@@ -117,6 +119,27 @@ describe('local switchboard', () => {
     render(<LocalFlags />); await waitFor(() => expect(screen.getByRole('button', { name: 'Import flags' })).toBeEnabled());
     expect(screen.getByText(/checkout in production was 0\.1 percent and now reads 1 percent/)).toBeInTheDocument(); expect(store.saveWorkspace).not.toHaveBeenCalled();
   });
+  it('opens a workspace saved with a four-part version rule, marks the rule and blocks only file exports', async () => {
+    const environments = defaultEnvironments(); environments.production.rules = [{ id: 'old-version', attribute: 'appVersion', operator: 'SEMVER_GTE', values: ['1.2.3.4'], serveValue: true }];
+    store.loadWorkspaceSnapshot.mockResolvedValue({ data: { version: 1, bucketing: 'sha256-32be-mod100', flags: [{ key: 'checkout', name: 'Checkout', description: '', tags: [], environments }] }, revision: 2 });
+    const { container } = render(<LocalFlags />); await editorReady();
+    expect(screen.getByText(/Rule 1 of checkout in production compares against "1\.2\.3\.4", which is not a SemVer version, so it never matches\. Correct the version and save the rules to use it again\./)).toHaveAttribute('role', 'status');
+    const values = screen.getByLabelText('Values for rule 1, one per line'); expect(values).toHaveAttribute('aria-invalid', 'true');
+    expect(values).toHaveAccessibleDescription('Not a SemVer version, so this rule never matches. Use a form such as 2.5.0 or 2.5.0-rc.1.');
+    expect((await axe(container)).violations).toEqual([]);
+    fireEvent.click(screen.getByRole('button', { name: 'Export' }));
+    expect(await screen.findByRole('alert')).toHaveTextContent('flags.json accepts only SemVer versions, so correct that rule before exporting.'); expect(files.downloadFile).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText('Export format'), { target: { value: 'evaluator' } }); fireEvent.click(screen.getByRole('button', { name: 'Export' }));
+    await waitFor(() => expect(files.downloadFile).toHaveBeenCalledWith('evaluate.js', expect.any(String), 'text/javascript'));
+    // Other edits still save, and keep the rule as it was.
+    fireEvent.click(screen.getByRole('switch', { name: 'Enabled in production' })); await waitFor(() => expect(store.saveWorkspace).toHaveBeenCalledTimes(1));
+    expect(store.saveWorkspace.mock.calls[0][0].flags[0].environments.production.rules[0].values).toEqual(['1.2.3.4']);
+    fireEvent.click(screen.getByRole('button', { name: 'Save rules' }));
+    expect(await screen.findByText('Rule 1: "1.2.3.4" is not a SemVer version. Use a form such as 2.5.0 or 2.5.0-rc.1.')).toBeInTheDocument(); expect(store.saveWorkspace).toHaveBeenCalledTimes(1);
+    fireEvent.change(values, { target: { value: '1.2.3' } }); expect(values).not.toHaveAttribute('aria-invalid');
+    fireEvent.click(screen.getByRole('button', { name: 'Save rules' })); await waitFor(() => expect(store.saveWorkspace).toHaveBeenCalledTimes(2));
+    expect(store.saveWorkspace.mock.calls[1][0].flags[0].environments.production.rules[0].values).toEqual(['1.2.3']);
+  }, 30000);
   it('retains saved configuration when a stale writer is rejected', async () => {
     store.saveWorkspace.mockRejectedValueOnce(new Error('Workspace changed in another tab.'));
     render(<LocalFlags />); const control = await screen.findByRole('switch', { name: 'Enabled in production' }); await waitFor(() => expect(control).toBeEnabled()); fireEvent.click(control);
